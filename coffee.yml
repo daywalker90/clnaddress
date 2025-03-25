@@ -1,0 +1,9 @@
+plugin:
+  name: clnaddress
+  version: 0.1.0
+  lang: rust
+  install: |
+    cargo build --release && cp target/release/clnaddress . && cargo clean
+  main: clnaddress
+tipping:
+  bolt12: lno1pgrhxatdd4shyucjpdjxz7thv9kxketj8ycpvggrsrhsyz0lrdrv8z3he4q0vy73mt37hfyp4yy5t8tvzs62petwtkxq
