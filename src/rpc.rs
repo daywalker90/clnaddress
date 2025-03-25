@@ -100,17 +100,20 @@ pub async fn user_add(
         users_clone = users.clone();
     }
     save_users(&plugin.state().plugin_dir, users_clone).await?;
-    if let Some(_res) = result {
-        Ok(
-            json!({"result":{"mode":"updated","user":user,"is_email":metadata.is_email,
-            "description":metadata.description}}),
-        )
+    let mut mode = if let Some(_res) = result {
+        json!({"mode":"updated"})
     } else {
-        Ok(
-            json!({"result":{"mode":"added","user":user,"is_email":metadata.is_email,
-            "description":metadata.description}}),
-        )
-    }
+        json!({"mode":"added"})
+    };
+
+    mode.as_object_mut()
+        .unwrap()
+        .extend(json!({"user":user}).as_object().unwrap().clone());
+    mode.as_object_mut()
+        .unwrap()
+        .extend(json!(metadata).as_object().unwrap().clone());
+
+    Ok(mode)
 }
 pub async fn user_del(
     plugin: Plugin<PluginState>,
@@ -142,7 +145,16 @@ pub async fn user_del(
     }
     if let Some(res) = result {
         save_users(&plugin.state().plugin_dir, users_clone).await?;
-        Ok(json!({"result":{"user":user,"metadata":res}}))
+        let mut mode = json!({"mode":"deleted"});
+
+        mode.as_object_mut()
+            .unwrap()
+            .extend(json!({"user":user}).as_object().unwrap().clone());
+        mode.as_object_mut()
+            .unwrap()
+            .extend(json!(res).as_object().unwrap().clone());
+
+        Ok(mode)
     } else {
         Err(anyhow!("User not found"))
     }
