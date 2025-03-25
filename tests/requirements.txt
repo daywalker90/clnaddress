@@ -1,3 +1,4 @@
 pytest-asyncio
 nostr-sdk
 PyYAML
+nostr_relay
