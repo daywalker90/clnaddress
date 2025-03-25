@@ -57,7 +57,7 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     response_lnurl = requests.get(f"http://{url}/lnurlp")
     assert response_lnurl.status_code == 200
     assert json.loads(response_lnurl.json()["metadata"]) == [
-        ["text/plain", "Thank you for the satoshis :)"]
+        ["text/plain", "Thank you :)"]
     ]
 
     callback = response_lnurl.json()["callback"]
@@ -71,15 +71,13 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     ][0]
     assert invoice["status"] == "paid"
     assert invoice["amount_received_msat"] == 2
-    assert json.loads(invoice["description"]) == [
-        ["text/plain", "Thank you for the satoshis :)"]
-    ]
+    assert json.loads(invoice["description"]) == [["text/plain", "Thank you :)"]]
 
     result = l2.rpc.call("clnaddress-adduser", [user_name, False, "MONEY, NOW!"])
-    assert result["result"]["user"] == user_name
-    assert result["result"]["mode"] == "added"
-    assert result["result"]["is_email"] is False
-    assert result["result"]["description"] == "MONEY, NOW!"
+    assert result["user"] == user_name
+    assert result["mode"] == "added"
+    assert result["is_email"] is False
+    assert result["description"] == "MONEY, NOW!"
 
     response = requests.get(f"http://{url}/.well-known/lnurlp/{user_name}")
     assert response.status_code == 200
@@ -117,10 +115,10 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     assert invoice["amount_msat"] == 2100
 
     result = l2.rpc.call("clnaddress-adduser", [user_name, True, "MONEY, LATER!"])
-    assert result["result"]["user"] == user_name
-    assert result["result"]["mode"] == "updated"
-    assert result["result"]["is_email"] is True
-    assert result["result"]["description"] == "MONEY, LATER!"
+    assert result["user"] == user_name
+    assert result["mode"] == "updated"
+    assert result["is_email"] is True
+    assert result["description"] == "MONEY, LATER!"
 
     response = requests.get(f"http://{url}/.well-known/lnurlp/{user_name}")
     assert response.status_code == 200
