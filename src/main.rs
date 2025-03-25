@@ -39,7 +39,7 @@ const OPT_CLNADDRESS_MAX_RECEIVABLE: DefaultIntegerConfigOption =
     );
 const OPT_CLNADDRESS_DESCRIPTION: DefaultStringConfigOption = ConfigOption::new_str_with_default(
     "clnaddress-description",
-    "Thank you for the satoshis :)",
+    "Thank you :)",
     "Description shown in wallets",
 );
 const OPT_CLNADDRESS_LISTEN: DefaultStringConfigOption = ConfigOption::new_str_with_default(
