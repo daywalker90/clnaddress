@@ -6,6 +6,7 @@ import json
 import logging
 import socket
 import subprocess
+import sys
 import time
 from datetime import timedelta
 from threading import Thread
@@ -14,18 +15,20 @@ import pytest
 import pytest_asyncio
 import requests
 import yaml
-from nostr_sdk import (
-    Client,
-    EventBuilder,
-    Filter,
-    Keys,
-    Kind,
-    NostrSigner,
-    ZapRequestData,
-)
 from pyln.testing.fixtures import *  # noqa: F403
 from pyln.testing.utils import wait_for
 from util import get_plugin  # noqa: F401
+
+if sys.version_info >= (3, 9):
+    from nostr_sdk import (
+        Client,
+        EventBuilder,
+        Filter,
+        Keys,
+        Kind,
+        NostrSigner,
+        ZapRequestData,
+    )
 
 LOGGER = logging.getLogger(__name__)
 
@@ -166,6 +169,7 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     assert response_invoice.status_code == 400
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="Requires Python 3.9 or higher")
 @pytest.mark.asyncio
 async def test_nostr(node_factory, get_plugin, nostr_client):  # noqa: F811
     nostr_client, relay_port = nostr_client
