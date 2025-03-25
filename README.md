@@ -6,8 +6,11 @@
 A core lightning plugin that runs an lnurl server to support lnurl and ln-addresses with optional Zap support.
 
 :white_check_mark: [LUD-06](https://github.com/lnurl/luds/blob/luds/06.md)
+
 :white_check_mark: [LUD-16](https://github.com/lnurl/luds/blob/luds/16.md)
+
 :white_check_mark: [NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md)
+
 
 * [Installation](#installation)
 * [Building](#building)
@@ -68,7 +71,9 @@ Note: Release binaries are built using ``cross`` and the ``optimized`` profile.
 
 ### Reverse Proxy
 For any of this to work you must configure your reverse proxy to point to the lnurl web server hosted under ``clnaddress-listen``
+
 With ``nginx``:
+
 For LNURL you can choose any location e.g. ``lnurl``:
 ```
 location /lnurl/ {
