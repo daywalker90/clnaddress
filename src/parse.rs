@@ -22,14 +22,16 @@ pub fn get_startup_options(
         Path::new(&plugin.configuration().lightning_dir).join(plugin.configuration().rpc_file);
 
     let listen_opt = plugin.option(&OPT_CLNADDRESS_LISTEN)?;
-    let listen_address_str: Vec<&str> = listen_opt.split(':').collect();
-    if listen_address_str.len() != 2 {
+    let (listen_address_str, _listen_port_str) = if let Some((add, p)) = listen_opt.rsplit_once(':')
+    {
+        (add, p)
+    } else {
         return Err(anyhow!(
-            "`{}` is invalid, it should have exactly one `:`",
+            "`{}` is invalid, it should have one `:`",
             OPT_CLNADDRESS_LISTEN.name()
         ));
-    }
-    let listen_address: SocketAddr = match *listen_address_str.first().unwrap() {
+    };
+    let listen_address: SocketAddr = match listen_address_str {
         i if i.eq("localhost") => listen_opt
             .to_socket_addrs()?
             .next()
