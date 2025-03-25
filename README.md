@@ -3,7 +3,9 @@
 [![main on CLN v25.02](https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.02.yml/badge.svg?branch=main)](https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.02.yml) [![main on CLN v24.11](https://github.com/daywalker90/clnaddress/actions/workflows/main_v24.11.yml/badge.svg?branch=main)](https://github.com/daywalker90/clnaddress/actions/workflows/main_v24.11.yml) [![main on CLN v24.08.2](https://github.com/daywalker90/clnaddress/actions/workflows/main_v24.08.yml/badge.svg?branch=main)](https://github.com/daywalker90/clnaddress/actions/workflows/main_v24.08.yml)
 
 # clnaddress
-A core lightning plugin that runs an lnurl server to support lnurl ([LUD-06](https://github.com/lnurl/luds/blob/luds/06.md)) and ln-addresses ([LUD-16](https://github.com/lnurl/luds/blob/luds/16.md)) with optional Zap ([NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md)) support.
+A [CLN](https://github.com/ElementsProject/lightning) plugin that runs an lnurl server so you can receive via lnurl ([LUD-06](https://github.com/lnurl/luds/blob/luds/06.md)) or ln-addresses ([LUD-16](https://github.com/lnurl/luds/blob/luds/16.md)) with optional Zap ([NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md)) support.
+
+Check out [payany](https://github.com/daywalker90/payany) if you want to be able to *pay* to an LNURL or ln-address from the CLI.
 
 
 * [Installation](#installation)
