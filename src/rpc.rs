@@ -91,7 +91,7 @@ pub async fn user_add(
                 let user_string = match user_val {
                     serde_json::Value::Number(number) => number.to_string(),
                     serde_json::Value::String(s) => s.to_owned(),
-                    _ => return Err(anyhow!("user field has invalid type")),
+                    _ => return Err(anyhow!("`user` field has invalid type")),
                 };
 
                 (
@@ -141,18 +141,24 @@ pub async fn user_del(
         let mut users = plugin.state().users.lock();
         user = match args {
             serde_json::Value::String(s) => s,
-            serde_json::Value::Array(values) => values
-                .first()
-                .ok_or_else(|| anyhow!("Empty array input"))?
-                .as_str()
-                .ok_or_else(|| anyhow!("Array elemnt not a string"))?
-                .to_owned(),
-            serde_json::Value::Object(map) => map
-                .get("user")
-                .ok_or_else(|| anyhow!("`user` element not found in object"))?
-                .as_str()
-                .ok_or_else(|| anyhow!("Array elemnt not a string"))?
-                .to_owned(),
+            serde_json::Value::Array(values) => {
+                let user_val = values.first().ok_or_else(|| anyhow!("Empty array input"))?;
+                match user_val {
+                    serde_json::Value::Number(number) => number.to_string(),
+                    serde_json::Value::String(s) => s.to_owned(),
+                    _ => return Err(anyhow!("Array user element has invalid type")),
+                }
+            }
+            serde_json::Value::Object(map) => {
+                let user_val = map
+                    .get("user")
+                    .ok_or_else(|| anyhow!("`user` field not found in object"))?;
+                match user_val {
+                    serde_json::Value::Number(number) => number.to_string(),
+                    serde_json::Value::String(s) => s.to_owned(),
+                    _ => return Err(anyhow!("`user` field has invalid type")),
+                }
+            }
             serde_json::Value::Number(n) => n.to_string(),
             _ => return Err(anyhow!("Not a valid input type")),
         };
