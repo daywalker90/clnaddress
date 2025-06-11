@@ -65,13 +65,6 @@ pub fn get_startup_options(
     }
 
     let min_sendable_msat = u64::try_from(plugin.option(&OPT_CLNADDRESS_MIN_RECEIVABLE)?)?;
-    if min_sendable_msat < 1 {
-        return Err(anyhow!(
-            "`{}` must be >=1",
-            OPT_CLNADDRESS_MIN_RECEIVABLE.name()
-        ));
-    }
-
     let max_sendable_msat = u64::try_from(plugin.option(&OPT_CLNADDRESS_MAX_RECEIVABLE)?)?;
 
     if min_sendable_msat > max_sendable_msat {

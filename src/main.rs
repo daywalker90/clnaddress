@@ -28,7 +28,7 @@ mod tasks;
 const OPT_CLNADDRESS_MIN_RECEIVABLE: DefaultIntegerConfigOption =
     ConfigOption::new_i64_with_default(
         "clnaddress-min-receivable",
-        1,
+        0,
         "Minimum receivable amount in msat",
     );
 const OPT_CLNADDRESS_MAX_RECEIVABLE: DefaultIntegerConfigOption =
@@ -313,9 +313,15 @@ async fn get_invoice(
             .into_response()
     })?;
 
+    let amount_msat = if params.amount > 0 {
+        AmountOrAny::Amount(Amount::from_msat(params.amount))
+    } else {
+        AmountOrAny::Any
+    };
+
     let cln_response = cln_client
         .call_typed(&InvoiceRequest {
-            amount_msat: AmountOrAny::Amount(Amount::from_msat(params.amount)),
+            amount_msat,
             description,
             label: Uuid::new_v4().to_string(),
             expiry: None,
