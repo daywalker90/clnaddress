@@ -8,6 +8,7 @@ use bech32::{Bech32, Hrp};
 use cln_plugin::options::{
     ConfigOption, DefaultIntegerConfigOption, DefaultStringConfigOption, StringConfigOption,
 };
+use cln_plugin::RpcMethodBuilder;
 use cln_rpc::model::requests::InvoiceRequest;
 use cln_rpc::primitives::{Amount, AmountOrAny};
 use nostr_sdk::event::{Event, Kind, TagKind};
@@ -19,6 +20,8 @@ use structs::{InvoiceQueryParams, LnurlpCallback, LnurlpConfig, PluginState};
 use tokio::fs;
 use tokio::io::{stdin, stdout};
 use uuid::Uuid;
+
+use crate::rpc::user_list;
 
 mod parse;
 mod rpc;
@@ -71,15 +74,22 @@ async fn main() -> anyhow::Result<()> {
         .option(OPT_CLNADDRESS_MAX_RECEIVABLE)
         .option(OPT_CLNADDRESS_DESCRIPTION)
         .option(OPT_CLNADDRESS_NOSTR_PRIVKEY)
-        .rpcmethod(
-            "clnaddress-adduser",
-            "Add a user with optional metadata to create a ln address",
-            user_add,
+        .rpcmethod_from_builder(
+            RpcMethodBuilder::new("clnaddress-adduser", user_add)
+                .description("Add a user with optional metadata to create a ln address")
+                .usage("user [is_email] [description]"),
         )
-        .rpcmethod(
-            "clnaddress-deluser",
-            "Remove a user previously created by clnaddress-adduser",
-            user_del,
+        .rpcmethod_from_builder(
+            RpcMethodBuilder::new("clnaddress-deluser", user_del)
+                .description("Remove a user previously created by clnaddress-adduser")
+                .usage("user"),
+        )
+        .rpcmethod_from_builder(
+            RpcMethodBuilder::new("clnaddress-listuser", user_list)
+                .description(
+                    "List all users and their settings or just the settings of the user specified",
+                )
+                .usage("[user]"),
         )
         .dynamic()
         .configure()

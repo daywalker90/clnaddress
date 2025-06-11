@@ -62,6 +62,9 @@ Note: Release binaries are built using ``cross`` and the ``optimized`` profile.
 * **clnaddress-deluser** *user*
      * deletes a previously added user
      * ***user***: username part of the lightning address
+* **clnaddress-listuser** [*user*]
+     * lists previously added user(s)
+     * ***user***: optional username part of the lightning address
 
 # Documentation
 

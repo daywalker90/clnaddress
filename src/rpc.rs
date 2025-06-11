@@ -182,6 +182,64 @@ pub async fn user_del(
     }
 }
 
+pub async fn user_list(
+    plugin: Plugin<PluginState>,
+    args: serde_json::Value,
+) -> Result<serde_json::Value, anyhow::Error> {
+    let mut users = plugin.state().users.lock().clone();
+    let user = match args {
+        serde_json::Value::String(s) => Some(s),
+        serde_json::Value::Array(values) => {
+            if values.is_empty() {
+                None
+            } else {
+                let user_val = values.first().ok_or_else(|| anyhow!("Empty array input"))?;
+                match user_val {
+                    serde_json::Value::Number(number) => Some(number.to_string()),
+                    serde_json::Value::String(s) => Some(s.to_owned()),
+                    _ => return Err(anyhow!("Array user element has invalid type")),
+                }
+            }
+        }
+        serde_json::Value::Object(map) => {
+            let user_val = map
+                .get("user")
+                .ok_or_else(|| anyhow!("`user` field not found in object"))?;
+            match user_val {
+                serde_json::Value::Number(number) => Some(number.to_string()),
+                serde_json::Value::String(s) => Some(s.to_owned()),
+                _ => return Err(anyhow!("`user` field has invalid type")),
+            }
+        }
+        serde_json::Value::Number(n) => Some(n.to_string()),
+        _ => return Err(anyhow!("Not a valid input type")),
+    };
+
+    if let Some(usr) = user {
+        users.retain(|u, _v| u.eq_ignore_ascii_case(&usr));
+        if users.is_empty() {
+            return Err(anyhow!("User `{}` not found!", usr));
+        }
+    }
+
+    let array: Vec<serde_json::Value> = users
+        .into_iter()
+        .map(|(key, data)| {
+            let data_value = serde_json::to_value(&data).unwrap_or(serde_json::Value::Null);
+            if let serde_json::Value::Object(mut map) = data_value {
+                map.insert("user".to_string(), serde_json::Value::String(key));
+                serde_json::Value::Object(map)
+            } else {
+                json!({
+                    "user": key
+                })
+            }
+        })
+        .collect();
+
+    Ok(serde_json::Value::Array(array))
+}
+
 pub async fn save_users(
     path: &Path,
     users: HashMap<String, UserMetadata>,
