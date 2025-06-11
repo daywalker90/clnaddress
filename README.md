@@ -46,7 +46,7 @@ Note: Release binaries are built using ``cross`` and the ``optimized`` profile.
 
 
 # Options
-- ``clnaddress-min-receivable``: Minimum receivable amount in msat, defaults to ``1``
+- ``clnaddress-min-receivable``: Minimum receivable amount in msat, defaults to ``0`` (any amount allowed)
 - ``clnaddress-max-receivable``: Maximum receivable amount in msat, defaults to ``100000000000``
 - ``clnaddress-description``: Description shown in wallets, defaults to ``Thank you :)``
 - ``clnaddress-listen``: Listen address for the LNURL web server. Use ``[::]`` to bind to everything. Defaults to ``localhost:9797``
