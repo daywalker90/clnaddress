@@ -1,6 +1,6 @@
 [package]
 name = "clnaddress"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.75"
 
@@ -12,9 +12,9 @@ axum = "0.8"
 log = "0.4"
 
 cln-plugin = "0.4"
-# cln-plugin = { path="../../lightning/plugins/", version = "^0.3" }
+# cln-plugin = { path="../lightning/plugins/", version = "^0.4" }
 cln-rpc = "0.4"
-# cln-rpc = { path="../../lightning/cln-rpc/", version = "^0.3" }
+# cln-rpc = { path="../lightning/cln-rpc/", version = "^0.4" }
 
 bech32 = "0.11"
 serde = "1"
@@ -22,7 +22,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["fs","sync","rt-multi-thread"] }
 url = { version = "2", features = [ "serde" ] }
 uuid = { version = "1", features = [ "v4" ] }
-nostr-sdk = { version = "0.40", features = ["nip57"] }
+nostr-sdk = { version = "0.42", features = ["nip57"] }
 parking_lot = "0.12"
 
 [profile.optimized]
