@@ -39,22 +39,24 @@ pub async fn user_add(
                 };
                 let description_val = values.get(2);
                 let description = if let Some(desc) = description_val {
-                    Some(
-                        desc.as_str()
-                            .ok_or_else(|| anyhow!("`description` is not a string"))?
-                            .to_owned(),
-                    )
+                    match desc {
+                        serde_json::Value::Number(number) => Some(number.to_string()),
+                        serde_json::Value::String(s) => Some(s.to_owned()),
+                        _ => return Err(anyhow!("`description` has invalid type")),
+                    }
                 } else {
                     None
                 };
 
+                let user_val = values.first().ok_or_else(|| anyhow!("Empty array input"))?;
+                let user_string = match user_val {
+                    serde_json::Value::Number(number) => number.to_string(),
+                    serde_json::Value::String(s) => s.to_owned(),
+                    _ => return Err(anyhow!("Array user element has invalid type")),
+                };
+
                 (
-                    values
-                        .first()
-                        .ok_or_else(|| anyhow!("Empty array input"))?
-                        .as_str()
-                        .ok_or_else(|| anyhow!("Array elemnt not a string"))?
-                        .to_owned(),
+                    user_string,
                     UserMetadata {
                         is_email,
                         description,
@@ -74,26 +76,39 @@ pub async fn user_add(
                 };
                 let description_val = map.get("description");
                 let description = if let Some(desc) = description_val {
-                    Some(
-                        desc.as_str()
-                            .ok_or_else(|| anyhow!("`description` is not a string"))?
-                            .to_owned(),
-                    )
+                    match desc {
+                        serde_json::Value::Number(number) => Some(number.to_string()),
+                        serde_json::Value::String(s) => Some(s.to_owned()),
+                        _ => return Err(anyhow!("`description` has invalid type")),
+                    }
                 } else {
                     None
                 };
+
+                let user_val = map
+                    .get("user")
+                    .ok_or_else(|| anyhow!("`user` field not found in object"))?;
+                let user_string = match user_val {
+                    serde_json::Value::Number(number) => number.to_string(),
+                    serde_json::Value::String(s) => s.to_owned(),
+                    _ => return Err(anyhow!("user field has invalid type")),
+                };
+
                 (
-                    map.get("user")
-                        .ok_or_else(|| anyhow!("`user` element not found in object"))?
-                        .as_str()
-                        .ok_or_else(|| anyhow!("Array elemnt not a string"))?
-                        .to_owned(),
+                    user_string,
                     UserMetadata {
                         is_email,
                         description,
                     },
                 )
             }
+            serde_json::Value::Number(n) => (
+                n.to_string(),
+                UserMetadata {
+                    is_email: None,
+                    description: None,
+                },
+            ),
             _ => return Err(anyhow!("Not a valid input type")),
         };
         result = users.insert(user.clone(), metadata.clone());
@@ -138,6 +153,7 @@ pub async fn user_del(
                 .as_str()
                 .ok_or_else(|| anyhow!("Array elemnt not a string"))?
                 .to_owned(),
+            serde_json::Value::Number(n) => n.to_string(),
             _ => return Err(anyhow!("Not a valid input type")),
         };
         result = users.remove(&user);
