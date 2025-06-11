@@ -166,10 +166,10 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     response_invoice = requests.get(callback)
     assert response_invoice.status_code == 400
 
-    l2.rpc.call("clnaddress-adduser", [69, False, "MONEY, NOW!"])
+    l2.rpc.call("clnaddress-adduser", [69, False, 42])
     l2.rpc.call("clnaddress-deluser", [69])
 
-    l2.rpc.call("clnaddress-adduser", {"user": 69})
+    l2.rpc.call("clnaddress-adduser", {"user": 69, "description": 42})
     l2.rpc.call("clnaddress-deluser", {"user": 69})
 
 
