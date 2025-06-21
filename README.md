@@ -98,7 +98,7 @@ Note: Release binaries are built using ``cross`` and the ``optimized`` profile.
 - ``clnaddress-description``: Description shown in wallets, defaults to ``Thank you :)``
 - ``clnaddress-listen``: Listen address for the LNURL web server. Use ``[::]`` to bind to everything. Defaults to ``localhost:9797``
 - ``clnaddress-base-url``: Base URL of you lnaddress service, e.g. ``https://sub.domain.org/path/``, no default and must be set
-- ``clnaddress-nostr-privkey``: Nostr private key for signing zap receipts, no default and optional, but required for zap support
+- ``clnaddress-nostr-privkey``: Nostr private key for signing zap receipts, no default and optional, but required for zap support. It is recommended to create another key for this and not use your usual nostr key.
 
 # Methods
 * **clnaddress-adduser** *user* [*is_email*] [*description*]
