@@ -22,6 +22,7 @@ from util import get_plugin  # noqa: F401
 if sys.version_info >= (3, 9):
     from nostr_sdk import (
         Client,
+        RelayUrl,
         EventBuilder,
         Filter,
         Keys,
@@ -209,7 +210,7 @@ async def test_nostr(node_factory, get_plugin, nostr_client):  # noqa: F811
     receiver_keys = Keys.generate()
     zap_request = EventBuilder.public_zap_request(
         ZapRequestData(
-            receiver_keys.public_key(), [f"ws://127.0.0.1:{relay_port}"]
+            receiver_keys.public_key(), [RelayUrl.parse(f"ws://127.0.0.1:{relay_port}")]
         ).amount(2100)
     ).sign_with_keys(client_keys)
     LOGGER.info(f"python_zap_request:{zap_request.as_json()}")
@@ -253,7 +254,7 @@ async def nostr_client(nostr_relay):
 
     client = Client(signer)
 
-    relay_url = f"ws://127.0.0.1:{port}"
+    relay_url = RelayUrl.parse(f"ws://127.0.0.1:{port}")
     await client.add_relay(relay_url)
     await client.connect()
 
