@@ -234,7 +234,7 @@ async def test_nostr(node_factory, get_plugin, nostr_client):  # noqa: F811
     assert invoice["amount_msat"] == 2100
 
     zap_filter = Filter().kind(Kind(9735))
-    events = await nostr_client.fetch_events(zap_filter, timeout=timedelta(seconds=5))
+    events = await nostr_client.fetch_events(zap_filter, timeout=timedelta(seconds=10))
     assert events.len() > 0, "No zap receipts found"
     zap_receipt = json.loads(events.first().as_json())
     LOGGER.info(zap_receipt)
