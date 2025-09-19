@@ -19,10 +19,10 @@ cln-rpc = "0.4"
 bech32 = "0.11"
 serde = "1"
 serde_json = "1"
-tokio = { version = "1", features = ["fs","sync","rt-multi-thread"] }
-url = { version = "2", features = [ "serde" ] }
-uuid = { version = "1", features = [ "v4" ] }
-nostr-sdk = { version = "0.42", features = ["nip57"] }
+tokio = { version = "1", features = ["fs", "sync", "rt-multi-thread"] }
+url = { version = "2", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+nostr-sdk = { version = "0.43", features = ["nip57"] }
 parking_lot = "0.12"
 
 [profile.optimized]
