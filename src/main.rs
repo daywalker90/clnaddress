@@ -1,24 +1,38 @@
 use anyhow::anyhow;
-use axum::extract::{Query, State};
-use axum::http::StatusCode;
-use axum::response::IntoResponse;
-use axum::routing::get;
-use axum::{Json, Router};
-use bech32::{Bech32, Hrp};
-use cln_plugin::options::{
-    ConfigOption, DefaultIntegerConfigOption, DefaultStringConfigOption, StringConfigOption,
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+    Json,
+    Router,
 };
-use cln_plugin::RpcMethodBuilder;
-use cln_rpc::model::requests::InvoiceRequest;
-use cln_rpc::primitives::{Amount, AmountOrAny};
-use nostr_sdk::event::{Event, Kind, TagKind};
-use nostr_sdk::util::JsonUtil;
+use bech32::{Bech32, Hrp};
+use cln_plugin::{
+    options::{
+        ConfigOption,
+        DefaultIntegerConfigOption,
+        DefaultStringConfigOption,
+        StringConfigOption,
+    },
+    RpcMethodBuilder,
+};
+use cln_rpc::{
+    model::requests::InvoiceRequest,
+    primitives::{Amount, AmountOrAny},
+};
+use nostr_sdk::{
+    event::{Event, Kind, TagKind},
+    util::JsonUtil,
+};
 use parse::get_startup_options;
 use rpc::{user_add, user_del};
 use serde_json::json;
 use structs::{InvoiceQueryParams, LnurlpCallback, LnurlpConfig, PluginState};
-use tokio::fs;
-use tokio::io::{stdin, stdout};
+use tokio::{
+    fs,
+    io::{stdin, stdout},
+};
 use uuid::Uuid;
 
 use crate::rpc::user_list;
