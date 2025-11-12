@@ -11,9 +11,9 @@ anyhow = "1"
 axum = "0.8"
 log = "0.4"
 
-cln-plugin = "0.4"
+cln-plugin = "0.5"
 # cln-plugin = { path="../lightning/plugins/", version = "^0.4" }
-cln-rpc = "0.4"
+cln-rpc = "0.5"
 # cln-rpc = { path="../lightning/cln-rpc/", version = "^0.4" }
 
 bech32 = "0.11"
@@ -22,7 +22,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["fs", "sync", "rt-multi-thread"] }
 url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
-nostr-sdk = { version = "0.43", features = ["nip57"] }
+nostr-sdk = { version = "0.44", features = ["nip57"] }
 parking_lot = "0.12"
 
 [profile.optimized]
