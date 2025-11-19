@@ -27,10 +27,7 @@ pub fn get_startup_options(
         Path::new(&plugin.configuration().lightning_dir).join(plugin.configuration().rpc_file);
 
     let listen_opt = plugin.option(&OPT_CLNADDRESS_LISTEN)?;
-    let (listen_address_str, _listen_port_str) = if let Some((add, p)) = listen_opt.rsplit_once(':')
-    {
-        (add, p)
-    } else {
+    let Some((listen_address_str, _listen_port_str)) = listen_opt.rsplit_once(':') else {
         return Err(anyhow!(
             "`{}` is invalid, it should have one `:`",
             OPT_CLNADDRESS_LISTEN.name()
@@ -53,9 +50,7 @@ pub fn get_startup_options(
         }
     };
 
-    let mut base_url_str = if let Some(url) = plugin.option(&OPT_CLNADDRESS_BASE_URL)? {
-        url
-    } else {
+    let Some(mut base_url_str) = plugin.option(&OPT_CLNADDRESS_BASE_URL)? else {
         return Err(anyhow!("Please specify a base URL!"));
     };
     let base_url: Url = if base_url_str.ends_with('/') {
@@ -66,7 +61,7 @@ pub fn get_startup_options(
     };
 
     if !base_url.has_host() {
-        return Err(anyhow!("Invalid base URL! Missing host part! {}", base_url));
+        return Err(anyhow!("Invalid base URL! Missing host part! {base_url}"));
     }
 
     let min_sendable_msat = u64::try_from(plugin.option(&OPT_CLNADDRESS_MIN_RECEIVABLE)?)?;

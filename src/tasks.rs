@@ -16,7 +16,7 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
     let mut rpc = ClnRpc::new(&plugin.state().rpc_path).await?;
     let keys = plugin.state().nostr_zapper_keys.clone().unwrap();
     let mut lastpay_index = plugin.state().payindex;
-    log::debug!("lastpay_index: {}", lastpay_index);
+    log::debug!("lastpay_index: {lastpay_index}");
     loop {
         match rpc
             .call_typed(&WaitanyinvoiceRequest {
@@ -26,14 +26,12 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
             .await
         {
             Ok(o) => {
-                log::debug!("{:?}", o);
+                log::debug!("{o:?}");
                 lastpay_index = o.pay_index.unwrap_or(lastpay_index + 1);
                 save_payindex(&plugin.state().plugin_dir, lastpay_index).await?;
                 if let Some(desc) = o.description {
                     if let Ok(event) = Event::from_json(desc.as_bytes()) {
-                        let bolt11 = if let Some(b11) = o.bolt11 {
-                            b11
-                        } else {
+                        let Some(bolt11) = o.bolt11 else {
                             log::warn!("No bolt11 found for zap receipt!");
                             continue;
                         };
@@ -51,7 +49,7 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                         let zap_receipt = match zap_receipt.sign_with_keys(&keys) {
                             Ok(o) => o,
                             Err(e) => {
-                                log::warn!("Could not sign zap receipt:{}", e);
+                                log::warn!("Could not sign zap receipt:{e}");
                                 continue;
                             }
                         };
@@ -64,21 +62,21 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                         {
                             for relay_url in relay_tag.as_slice().iter().skip(1) {
                                 if let Err(e) = client.add_relay(relay_url).await {
-                                    log::warn!("Could not add relay {} to client: {}", relay_url, e)
+                                    log::warn!("Could not add relay {relay_url} to client: {e}");
                                 };
                             }
                             client.connect().await;
                             if let Err(e) = client.send_event(&zap_receipt).await {
-                                log::warn!("Could not send zap receipt: {}", e)
+                                log::warn!("Could not send zap receipt: {e}");
                             };
                         } else {
-                            log::warn!("No relays included in zap request!")
+                            log::warn!("No relays included in zap request!");
                         }
                     }
                 }
             }
             Err(e) => {
-                log::warn!("Err waiting on invoices: {}", e)
+                log::warn!("Err waiting on invoices: {e}");
             }
         }
     }

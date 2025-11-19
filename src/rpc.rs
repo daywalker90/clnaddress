@@ -17,100 +17,7 @@ pub async fn user_add(
     let users_clone;
     {
         let mut users = plugin.state().users.lock();
-        (user, metadata) = match args {
-            serde_json::Value::String(s) => (
-                s,
-                UserMetadata {
-                    is_email: None,
-                    description: None,
-                },
-            ),
-            serde_json::Value::Array(values) => {
-                let is_email_val = values.get(1);
-                log::debug!("{:?}", is_email_val);
-                let is_email = if let Some(val) = is_email_val {
-                    match val {
-                        serde_json::Value::Bool(b) => Some(*b),
-                        serde_json::Value::String(s) => Some(s.parse()?),
-                        _ => return Err(anyhow!("`is_email` has invalid type")),
-                    }
-                } else {
-                    None
-                };
-                let description_val = values.get(2);
-                let description = if let Some(desc) = description_val {
-                    match desc {
-                        serde_json::Value::Number(number) => Some(number.to_string()),
-                        serde_json::Value::String(s) => Some(s.to_owned()),
-                        _ => return Err(anyhow!("`description` has invalid type")),
-                    }
-                } else {
-                    None
-                };
-
-                let user_val = values.first().ok_or_else(|| anyhow!("Empty array input"))?;
-                let user_string = match user_val {
-                    serde_json::Value::Number(number) => number.to_string(),
-                    serde_json::Value::String(s) => s.to_owned(),
-                    _ => return Err(anyhow!("Array user element has invalid type")),
-                };
-
-                (
-                    user_string,
-                    UserMetadata {
-                        is_email,
-                        description,
-                    },
-                )
-            }
-            serde_json::Value::Object(map) => {
-                let is_email_val = map.get("is_email");
-                let is_email = if let Some(val) = is_email_val {
-                    match val {
-                        serde_json::Value::Bool(b) => Some(*b),
-                        serde_json::Value::String(s) => Some(s.parse()?),
-                        _ => return Err(anyhow!("`is_email` has invalid type")),
-                    }
-                } else {
-                    None
-                };
-                let description_val = map.get("description");
-                let description = if let Some(desc) = description_val {
-                    match desc {
-                        serde_json::Value::Number(number) => Some(number.to_string()),
-                        serde_json::Value::String(s) => Some(s.to_owned()),
-                        _ => return Err(anyhow!("`description` has invalid type")),
-                    }
-                } else {
-                    None
-                };
-
-                let user_val = map
-                    .get("user")
-                    .ok_or_else(|| anyhow!("`user` field not found in object"))?;
-                let user_string = match user_val {
-                    serde_json::Value::Number(number) => number.to_string(),
-                    serde_json::Value::String(s) => s.to_owned(),
-                    _ => return Err(anyhow!("`user` field has invalid type")),
-                };
-
-                (
-                    user_string,
-                    UserMetadata {
-                        is_email,
-                        description,
-                    },
-                )
-            }
-            serde_json::Value::Number(n) => (
-                n.to_string(),
-                UserMetadata {
-                    is_email: None,
-                    description: None,
-                },
-            ),
-            _ => return Err(anyhow!("Not a valid input type")),
-        };
+        (user, metadata) = parse_user_add_args(&args)?;
         result = users.insert(user.clone(), metadata.clone());
         users_clone = users.clone();
     }
@@ -130,6 +37,110 @@ pub async fn user_add(
 
     Ok(mode)
 }
+
+pub fn parse_user_add_args(
+    args: &serde_json::Value,
+) -> Result<(String, UserMetadata), anyhow::Error> {
+    match args {
+        serde_json::Value::String(s) => Ok((
+            s.clone(),
+            UserMetadata {
+                is_email: None,
+                description: None,
+            },
+        )),
+        serde_json::Value::Number(n) => Ok((
+            n.to_string(),
+            UserMetadata {
+                is_email: None,
+                description: None,
+            },
+        )),
+        serde_json::Value::Array(values) => {
+            if values.is_empty() {
+                return Err(anyhow!("Empty array input"));
+            }
+
+            let user_val = values.first().ok_or_else(|| anyhow!("Empty array input"))?;
+            let user_string = match user_val {
+                serde_json::Value::Number(number) => number.to_string(),
+                serde_json::Value::String(s) => s.to_owned(),
+                _ => return Err(anyhow!("Array user element has invalid type")),
+            };
+
+            let is_email_val = values.get(1);
+            log::debug!("{is_email_val:?}");
+            let is_email = if let Some(val) = is_email_val {
+                match val {
+                    serde_json::Value::Bool(b) => Some(*b),
+                    serde_json::Value::String(s) => Some(s.parse()?),
+                    _ => return Err(anyhow!("`is_email` has invalid type")),
+                }
+            } else {
+                None
+            };
+            let description_val = values.get(2);
+            let description = if let Some(desc) = description_val {
+                match desc {
+                    serde_json::Value::Number(number) => Some(number.to_string()),
+                    serde_json::Value::String(s) => Some(s.to_owned()),
+                    _ => return Err(anyhow!("`description` has invalid type")),
+                }
+            } else {
+                None
+            };
+
+            Ok((
+                user_string,
+                UserMetadata {
+                    is_email,
+                    description,
+                },
+            ))
+        }
+        serde_json::Value::Object(map) => {
+            let is_email_val = map.get("is_email");
+            let is_email = if let Some(val) = is_email_val {
+                match val {
+                    serde_json::Value::Bool(b) => Some(*b),
+                    serde_json::Value::String(s) => Some(s.parse()?),
+                    _ => return Err(anyhow!("`is_email` has invalid type")),
+                }
+            } else {
+                None
+            };
+            let description_val = map.get("description");
+            let description = if let Some(desc) = description_val {
+                match desc {
+                    serde_json::Value::Number(number) => Some(number.to_string()),
+                    serde_json::Value::String(s) => Some(s.to_owned()),
+                    _ => return Err(anyhow!("`description` has invalid type")),
+                }
+            } else {
+                None
+            };
+
+            let user_val = map
+                .get("user")
+                .ok_or_else(|| anyhow!("`user` field not found in object"))?;
+            let user_string = match user_val {
+                serde_json::Value::Number(number) => number.to_string(),
+                serde_json::Value::String(s) => s.to_owned(),
+                _ => return Err(anyhow!("`user` field has invalid type")),
+            };
+
+            Ok((
+                user_string,
+                UserMetadata {
+                    is_email,
+                    description,
+                },
+            ))
+        }
+        _ => Err(anyhow!("Not a valid input type")),
+    }
+}
+
 pub async fn user_del(
     plugin: Plugin<PluginState>,
     args: serde_json::Value,
@@ -218,7 +229,7 @@ pub async fn user_list(
     if let Some(usr) = user {
         users.retain(|u, _v| u.eq_ignore_ascii_case(&usr));
         if users.is_empty() {
-            return Err(anyhow!("User `{}` not found!", usr));
+            return Err(anyhow!("User `{usr}` not found!"));
         }
     }
 
