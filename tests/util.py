@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 
 RUST_PROFILE = os.environ.get("RUST_PROFILE", "debug")
-COMPILED_PATH = Path.cwd() / "target" / RUST_PROFILE / "clnaddress"
-DOWNLOAD_PATH = Path.cwd() / "tests" / "clnaddress"
+plugin_dir = Path(__file__).parent.parent.resolve()
+COMPILED_PATH = plugin_dir / "target" / RUST_PROFILE / "clnaddress"
+DOWNLOAD_PATH = plugin_dir / "tests" / "clnaddress"
 
 
 @pytest.fixture
