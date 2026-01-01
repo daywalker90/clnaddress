@@ -1,37 +1,124 @@
 #!/usr/bin/python
 
+import datetime
 import hashlib
-import importlib.resources as pkg_resources
+import inspect
 import json
 import logging
-import socket
-import subprocess
-import sys
 import time
 from datetime import timedelta
-from threading import Thread
+from typing import Any, Awaitable, Callable, Union
 
 import pytest
-import pytest_asyncio
 import requests
-import yaml
+import asyncio
 from pyln.testing.fixtures import *  # noqa: F403
-from pyln.testing.utils import wait_for
+from pyln.testing.utils import wait_for, TIMEOUT
 from util import get_plugin  # noqa: F401
 
-if sys.version_info >= (3, 9):
-    from nostr_sdk import (
-        Client,
-        RelayUrl,
-        EventBuilder,
-        Filter,
-        Keys,
-        Kind,
-        NostrSigner,
-        ZapRequestData,
-    )
+from nostr_sdk import (
+    Client,
+    RelayUrl,
+    EventBuilder,
+    Filter,
+    Keys,
+    Kind,
+    NostrSigner,
+    ZapRequestData,
+    HandleNotification,
+    Event,
+    PublicKey,
+    NostrWalletConnectUri,
+)
 
 LOGGER = logging.getLogger(__name__)
+
+
+class NotificationHandler(HandleNotification):
+    def __init__(self, events_list, stop_after):
+        self.events_list = events_list
+        self.stop_after = stop_after
+        self._done = asyncio.Event()
+
+    async def handle(self, relay_url, subscription_id, event: Event):
+        LOGGER.info(f"Received new event from {relay_url}: {event.as_json()}")
+        self.events_list.append(event)
+        if len(self.events_list) >= self.stop_after:
+            self._done.set()
+
+    async def handle_msg(self, relay_url, msg):
+        _var = None
+
+
+Action = Union[
+    Callable[[], Awaitable[None]],
+    Callable[[], None],
+    Awaitable[None],
+]
+
+
+async def fetch_event_responses(
+    client: Client,
+    client_pubkey: PublicKey,
+    event_kind: int,
+    action: Action,
+    stop_after: int,
+    timeout: int = TIMEOUT,
+) -> tuple[list[Event], Any]:
+    events = []
+    response_filter = Filter().kind(Kind(event_kind)).pubkey(client_pubkey)
+    await client.subscribe(response_filter)
+
+    handler = NotificationHandler(events, stop_after)
+    task = asyncio.create_task(client.handle_notifications(handler))
+
+    time.sleep(1)
+    if inspect.iscoroutine(action):
+        action_result = await action
+    elif inspect.iscoroutinefunction(action):
+        action_result = await action()
+    elif callable(action):
+        action_result = await asyncio.to_thread(action)
+    else:
+        raise TypeError("action must be a callable or an awaitable")
+
+    try:
+        await asyncio.wait_for(handler._done.wait(), timeout=timeout)
+    except asyncio.TimeoutError:
+        print(
+            f"Timeout reached after {timeout} seconds, collected {len(events)} events"
+        )
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    await client.unsubscribe_all()
+    assert len(events) == stop_after
+    return (events, action_result)
+
+
+async def fetch_info_event(
+    client: Client,
+    uri: NostrWalletConnectUri,
+) -> Event:
+    response_filter = Filter().kind(Kind(13194)).author(uri.public_key())
+    events = await client.fetch_events(
+        response_filter, timeout=timedelta(seconds=TIMEOUT)
+    )
+    start_time = datetime.now()
+    while events.len() < 1 and (datetime.now() - start_time) < timedelta(
+        seconds=TIMEOUT
+    ):
+        time.sleep(1)
+        events = await client.fetch_events(
+            response_filter, timeout=timedelta(seconds=1)
+        )
+    assert events.len() == 1
+
+    return events.first()
 
 
 def test_clnaddress(node_factory, get_plugin):  # noqa: F811
@@ -174,10 +261,9 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     l2.rpc.call("clnaddress-deluser", {"user": 69})
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="Requires Python 3.9 or higher")
 @pytest.mark.asyncio
-async def test_nostr(node_factory, get_plugin, nostr_client):  # noqa: F811
-    nostr_client, relay_port = nostr_client
+async def test_nostr(node_factory, get_plugin, nostr_relay):  # noqa: F811
+    relay_url = RelayUrl.parse(nostr_relay)
     port = node_factory.get_unused_port()
     url = f"localhost:{port}"
     user_name = "testuser"
@@ -209,9 +295,7 @@ async def test_nostr(node_factory, get_plugin, nostr_client):  # noqa: F811
     client_keys = Keys.generate()
     receiver_keys = Keys.generate()
     zap_request = EventBuilder.public_zap_request(
-        ZapRequestData(
-            receiver_keys.public_key(), [RelayUrl.parse(f"ws://127.0.0.1:{relay_port}")]
-        ).amount(2100)
+        ZapRequestData(receiver_keys.public_key(), [relay_url]).amount(2100)
     ).sign_with_keys(client_keys)
     LOGGER.info(f"python_zap_request:{zap_request.as_json()}")
     response_invoice = requests.get(
@@ -233,6 +317,11 @@ async def test_nostr(node_factory, get_plugin, nostr_client):  # noqa: F811
     )
     assert invoice["amount_msat"] == 2100
 
+    signer = NostrSigner.keys(receiver_keys)
+    nostr_client = Client(signer)
+    await nostr_client.add_relay(relay_url)
+    await nostr_client.connect()
+
     zap_filter = Filter().kind(Kind(9735))
     events = await nostr_client.fetch_events(zap_filter, timeout=timedelta(seconds=10))
     assert events.len() > 0, "No zap receipts found"
@@ -244,78 +333,3 @@ async def test_nostr(node_factory, get_plugin, nostr_client):  # noqa: F811
             description_found = True
             assert json.loads(tag[1]) == json.loads(zap_request.as_json())
     assert description_found
-
-
-@pytest_asyncio.fixture(scope="function")
-async def nostr_client(nostr_relay):
-    port = nostr_relay
-    keys = Keys.generate()
-    signer = NostrSigner.keys(keys)
-
-    client = Client(signer)
-
-    relay_url = RelayUrl.parse(f"ws://127.0.0.1:{port}")
-    await client.add_relay(relay_url)
-    await client.connect()
-
-    yield client, port
-
-    await client.disconnect()
-
-
-@pytest_asyncio.fixture(scope="function")
-async def nostr_relay():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("127.0.0.1", 0))
-    dynamic_port = s.getsockname()[1]
-    s.close()
-
-    try:
-        config_file = pkg_resources.files("nostr_relay").joinpath("config.yaml")
-    except KeyError:
-        raise FileNotFoundError("config.yaml not found in the nostr package")
-
-    with open(config_file, "r") as file:
-        config = yaml.safe_load(file)
-
-    config["gunicorn"]["bind"] = f"127.0.0.1:{dynamic_port}"
-    config["authentication"]["valid_urls"] = [
-        f"ws://localhost:{dynamic_port}",
-        f"ws://127.0.0.1:{dynamic_port}",
-    ]
-
-    with open(config_file, "w") as file:
-        yaml.safe_dump(config, file)
-
-    LOGGER.info(f"{config_file}")
-    process = subprocess.Popen(
-        ["nostr-relay", "-c", config_file, "serve"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-
-    stdout_thread = Thread(target=log_pipe, args=(process.stdout, LOGGER, logging.INFO))
-    stderr_thread = Thread(
-        target=log_pipe, args=(process.stderr, LOGGER, logging.ERROR)
-    )
-    stdout_thread.start()
-    stderr_thread.start()
-
-    time.sleep(2)
-
-    yield dynamic_port
-
-    process.terminate()
-    process.wait()
-
-    stdout_thread.join()
-    stderr_thread.join()
-
-
-def log_pipe(pipe, logger, log_level):
-    while True:
-        line = pipe.readline()
-        if not line:
-            break
-        logger.log(log_level, line.strip())
