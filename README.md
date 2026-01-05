@@ -2,48 +2,48 @@
   <tr>
     <td>
       <a href="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.02.yml">
-        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.02.yml/badge.svg?branch=main">
+        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.02.yml/badge.svg?branch=master">
       </a>
     </td>
     <td>
-      <a href="https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.02.yml">
-        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.02.yml/badge.svg?branch=main">
+      <a href="https://github.com/daywalker90/clnaddress/actions/workflows/master_v25.02.yml">
+        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/master_v25.02.yml/badge.svg?branch=master">
       </a>
     </td>
   </tr>
   <tr>
     <td>
       <a href="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.05.yml">
-        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.05.yml/badge.svg?branch=main">
+        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.05.yml/badge.svg?branch=master">
       </a>
     </td>
     <td>
-      <a href="https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.05.yml">
-        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.05.yml/badge.svg?branch=main">
+      <a href="https://github.com/daywalker90/clnaddress/actions/workflows/master_v25.05.yml">
+        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/master_v25.05.yml/badge.svg?branch=master">
       </a>
     </td>
   </tr>
   <tr>
     <td>
       <a href="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.09.yml">
-        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.09.yml/badge.svg?branch=main">
+        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.09.yml/badge.svg?branch=master">
       </a>
     </td>
     <td>
-      <a href="https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.09.yml">
-        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.09.yml/badge.svg?branch=main">
+      <a href="https://github.com/daywalker90/clnaddress/actions/workflows/master_v25.09.yml">
+        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/master_v25.09.yml/badge.svg?branch=master">
       </a>
     </td>
   </tr>
   <tr>
     <td>
       <a href="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.12.yml">
-        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.12.yml/badge.svg?branch=main">
+        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/latest_v25.12.yml/badge.svg?branch=master">
       </a>
     </td>
     <td>
-      <a href="https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.12.yml">
-        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/main_v25.12.yml/badge.svg?branch=main">
+      <a href="https://github.com/daywalker90/clnaddress/actions/workflows/master_v25.12.yml">
+        <img src="https://github.com/daywalker90/clnaddress/actions/workflows/master_v25.12.yml/badge.svg?branch=master">
       </a>
     </td>
   </tr>
@@ -97,7 +97,7 @@ Note: Release binaries are built using ``cross`` and the ``optimized`` profile.
 - ``clnaddress-max-receivable``: Maximum receivable amount in msat, defaults to ``100000000000``
 - ``clnaddress-description``: Description shown in wallets, defaults to ``Thank you :)``
 - ``clnaddress-listen``: Listen address for the LNURL web server. Use ``[::]`` to bind to everything. Defaults to ``localhost:9797``
-- ``clnaddress-base-url``: Base URL of you lnaddress service, e.g. ``https://sub.domain.org/path/``, no default and must be set
+- ``clnaddress-base-url``: Base URL of you lnaddress service, e.g. ``https://sub.domaster.org/path/``, no default and must be set
 - ``clnaddress-nostr-privkey``: Nostr private key for signing zap receipts, no default and optional, but required for zap support. It is recommended to create another key for this and not use your usual nostr key.
 
 # Methods
