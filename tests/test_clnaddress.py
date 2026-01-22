@@ -262,7 +262,7 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
 
 
 @pytest.mark.asyncio
-async def test_nostr(node_factory, get_plugin, nostr_relay):  # noqa: F811
+async def test_nostr(nostr_relay, node_factory, get_plugin):  # noqa: F811
     relay_url = RelayUrl.parse(nostr_relay)
     port = node_factory.get_unused_port()
     url = f"localhost:{port}"
@@ -281,6 +281,7 @@ async def test_nostr(node_factory, get_plugin, nostr_relay):  # noqa: F811
                 "clnaddress-min-receivable": 2,
                 "clnaddress-max-receivable": 3000,
                 "clnaddress-nostr-privkey": zapper_keys.secret_key().to_hex(),
+                "broken_log": r"Relay receiver exited with error",
             },
         ],
     )
