@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.1.4] 2026-03-29
+
+### Added
+- release binaries for macOS
+
 ## [0.1.3] 2026-03-29
 
 ### Changed
