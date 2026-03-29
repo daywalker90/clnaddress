@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3] 2026-03-29
+
+### Changed
+- updated `cln-rpc` and `cln-plugin` dependencies
+- MSRV raised to 1.85
+
 ## [0.1.2] 2025-06-11
 
 ### Added

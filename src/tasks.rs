@@ -1,16 +1,16 @@
 use std::path::Path;
 
 use cln_plugin::Plugin;
-use cln_rpc::{model::requests::WaitanyinvoiceRequest, ClnRpc};
+use cln_rpc::{ClnRpc, model::requests::WaitanyinvoiceRequest};
 use nostr_sdk::{
+    Client,
     event::{Event, EventBuilder, TagKind},
     types::Timestamp,
     util::JsonUtil,
-    Client,
 };
 use tokio::fs;
 
-use crate::{structs::PluginState, CLNADDRESS_PAYINDEX_FILENAME};
+use crate::{CLNADDRESS_PAYINDEX_FILENAME, structs::PluginState};
 
 pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyhow::Error> {
     let mut rpc = ClnRpc::new(&plugin.state().rpc_path).await?;
@@ -63,12 +63,12 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                             for relay_url in relay_tag.as_slice().iter().skip(1) {
                                 if let Err(e) = client.add_relay(relay_url).await {
                                     log::warn!("Could not add relay {relay_url} to client: {e}");
-                                };
+                                }
                             }
                             client.connect().await;
                             if let Err(e) = client.send_event(&zap_receipt).await {
                                 log::warn!("Could not send zap receipt: {e}");
-                            };
+                            }
                         } else {
                             log::warn!("No relays included in zap request!");
                         }

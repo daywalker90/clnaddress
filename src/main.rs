@@ -1,13 +1,13 @@
-use axum::{routing::get, Router};
+use axum::{Router, routing::get};
 use bech32::{Bech32, Hrp};
 use cln_plugin::{
+    RpcMethodBuilder,
     options::{
         ConfigOption,
         DefaultIntegerConfigOption,
         DefaultStringConfigOption,
         StringConfigOption,
     },
-    RpcMethodBuilder,
 };
 use parse::get_startup_options;
 use rpc::{user_add, user_del};
@@ -63,10 +63,12 @@ const CLNADDRESS_PAYINDEX_FILENAME: &str = "payindex.json";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    std::env::set_var(
-        "CLN_PLUGIN_LOG",
-        "cln_plugin=info,cln_rpc=info,clnaddress=debug,info",
-    );
+    unsafe {
+        std::env::set_var(
+            "CLN_PLUGIN_LOG",
+            "cln_plugin=info,cln_rpc=info,clnaddress=debug,info",
+        );
+    };
     let Some(configured_plugin) = cln_plugin::Builder::new(stdin(), stdout())
         .option(OPT_CLNADDRESS_LISTEN)
         .option(OPT_CLNADDRESS_BASE_URL)
@@ -103,7 +105,7 @@ async fn main() -> anyhow::Result<()> {
         Err(e) => {
             return configured_plugin
                 .disable(&format!("Error parsing options: {e}"))
-                .await
+                .await;
         }
     };
 
@@ -121,7 +123,7 @@ async fn main() -> anyhow::Result<()> {
         Err(e) => {
             return configured_plugin
                 .disable(&format!("Error binding to listen address: {e}"))
-                .await
+                .await;
         }
     };
 
