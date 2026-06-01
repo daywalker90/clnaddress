@@ -11,9 +11,9 @@ anyhow = "1"
 axum = "0.8"
 log = "0.4"
 
-cln-plugin = "0.6"
+cln-plugin = "0.7"
 # cln-plugin = { path = "../lightning/plugins/", version = "^0.6" }
-cln-rpc = "0.6"
+cln-rpc = "0.7"
 # cln-rpc = { path = "../lightning/cln-rpc/", version = "^0.6" }
 
 bech32 = "0.11"
