@@ -11,13 +11,13 @@ use parking_lot::Mutex;
 use url::Url;
 
 use crate::{
-    PluginState,
     OPT_CLNADDRESS_BASE_URL,
     OPT_CLNADDRESS_DESCRIPTION,
     OPT_CLNADDRESS_LISTEN,
     OPT_CLNADDRESS_MAX_RECEIVABLE,
     OPT_CLNADDRESS_MIN_RECEIVABLE,
     OPT_CLNADDRESS_NOSTR_PRIVKEY,
+    PluginState,
 };
 
 pub fn get_startup_options(
@@ -78,7 +78,7 @@ pub fn get_startup_options(
     let default_description = plugin.option(&OPT_CLNADDRESS_DESCRIPTION)?;
 
     let nostr_zapper_keys = match plugin.option(&OPT_CLNADDRESS_NOSTR_PRIVKEY)? {
-        Some(privkey) => Some(nostr_sdk::key::Keys::parse(&privkey)?),
+        Some(privkey) => Some(nostr::key::Keys::parse(&privkey)?),
         None => None,
     };
 

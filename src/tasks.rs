@@ -1,13 +1,13 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use cln_plugin::Plugin;
 use cln_rpc::{ClnRpc, model::requests::WaitanyinvoiceRequest};
-use nostr_sdk::{
-    Client,
-    event::{Event, EventBuilder, TagKind},
+use nostr::{
+    event::{Event, EventBuilder, FinalizeEventAsync, TagCodec},
+    nips::nip57::Nip57Tag,
     types::Timestamp,
-    util::JsonUtil,
 };
+use nostr_sdk::client::Client;
 use tokio::fs;
 
 use crate::{CLNADDRESS_PAYINDEX_FILENAME, structs::PluginState};
@@ -30,7 +30,7 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                 lastpay_index = o.pay_index.unwrap_or(lastpay_index + 1);
                 save_payindex(&plugin.state().plugin_dir, lastpay_index).await?;
                 if let Some(desc) = o.description {
-                    if let Ok(event) = Event::from_json(desc.as_bytes()) {
+                    if let Ok(zap_request) = Event::from_json(desc.as_bytes()) {
                         let Some(bolt11) = o.bolt11 else {
                             log::warn!("No bolt11 found for zap receipt!");
                             continue;
@@ -39,38 +39,48 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                             bolt11,
                             o.payment_preimage
                                 .map(|p| serde_json::to_string(&p).unwrap()),
-                            &event,
+                            &zap_request,
                         );
                         if let Some(paid_at) = o.paid_at {
                             zap_receipt =
                                 zap_receipt.custom_created_at(Timestamp::from_secs(paid_at));
                         }
 
-                        let zap_receipt = match zap_receipt.sign_with_keys(&keys) {
+                        let zap_receipt = match zap_receipt.finalize_async(&keys).await {
                             Ok(o) => o,
                             Err(e) => {
                                 log::warn!("Could not sign zap receipt:{e}");
                                 continue;
                             }
                         };
-                        log::debug!("{}", zap_receipt.as_json());
+                        if let Ok(zap_receipt_json) = zap_receipt.try_as_json() {
+                            log::debug!("{zap_receipt_json}");
+                        }
 
-                        let client = Client::new(keys.clone());
+                        let client = Client::new();
 
-                        if let Some(relay_tag) =
-                            event.tags.iter().find(|t| t.kind() == TagKind::Relays)
-                        {
-                            for relay_url in relay_tag.as_slice().iter().skip(1) {
-                                if let Err(e) = client.add_relay(relay_url).await {
-                                    log::warn!("Could not add relay {relay_url} to client: {e}");
+                        for tag in zap_request.tags {
+                            if let Ok(Nip57Tag::Relays(relay_urls)) = Nip57Tag::parse(tag) {
+                                for relay_url in &relay_urls {
+                                    if let Err(e) = client.add_relay(relay_url).await {
+                                        log::warn!(
+                                            "Could not add relay {relay_url} to client: {e}"
+                                        );
+                                    }
                                 }
                             }
-                            client.connect().await;
-                            if let Err(e) = client.send_event(&zap_receipt).await {
-                                log::warn!("Could not send zap receipt: {e}");
-                            }
-                        } else {
+                        }
+                        if client.relays().await.is_empty() {
                             log::warn!("No relays included in zap request!");
+                        }
+                        client.connect().and_wait(Duration::from_secs(30)).await;
+                        match client.send_event(&zap_receipt).await {
+                            Ok(o) => {
+                                for (url, failure) in o.failed {
+                                    log::warn!("Sending to relay {url} failed: {failure}");
+                                }
+                            }
+                            Err(e) => log::warn!("Could not send zap receipt: {e}"),
                         }
                     }
                 }

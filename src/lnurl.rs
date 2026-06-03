@@ -1,17 +1,17 @@
 use anyhow::anyhow;
 use axum::{
+    Json,
     extract::{Query, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
 };
 use cln_rpc::{
     model::requests::InvoiceRequest,
     primitives::{Amount, AmountOrAny},
 };
-use nostr_sdk::{
-    event::{Event, Kind, TagKind},
-    util::JsonUtil,
+use nostr::{
+    event::{Event, Kind, TagCodec},
+    nips::nip57::Nip57Tag,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -76,29 +76,28 @@ pub async fn get_invoice(
         Some(d) => {
             if state.nostr_zapper_keys.is_none() {
                 return Err((
-                    StatusCode::BAD_REQUEST,
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     lnurl_error("Nostr Zaps not configured"),
                 )
                     .into_response());
             }
             let zap_request: Event = Event::from_json(d).map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    lnurl_error(&e.to_string()),
-                )
-                    .into_response()
-            })?;
-            zap_request.verify().map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    lnurl_error(&e.to_string()),
-                )
-                    .into_response()
-            })?;
-            verify_zap_request(&zap_request, params.amount).map_err(|e| {
                 (StatusCode::BAD_REQUEST, lnurl_error(&e.to_string())).into_response()
             })?;
-            zap_request.as_json()
+            zap_request.verify().map_err(|e| {
+                (StatusCode::BAD_REQUEST, lnurl_error(&e.to_string())).into_response()
+            })?;
+            let zap_request_json = zap_request.try_as_json().map_err(|e| {
+                (StatusCode::BAD_REQUEST, lnurl_error(&e.to_string())).into_response()
+            })?;
+            log::debug!("zap_request: {zap_request_json}");
+            verify_zap_request(
+                &zap_request,
+                params.amount,
+                &state.nostr_zapper_keys.unwrap(),
+            )
+            .map_err(|e| (StatusCode::BAD_REQUEST, lnurl_error(&e.to_string())).into_response())?;
+            zap_request_json
         }
         None => {
             if let Some(user) = maybe_user {
@@ -232,8 +231,11 @@ fn lnurl_error(error: &str) -> Json<serde_json::Value> {
     Json(json!({"status":"ERROR", "reason":error}))
 }
 
-fn verify_zap_request(event: &Event, amount: u64) -> Result<(), anyhow::Error> {
-    log::debug!("zap_request: {}", event.as_json());
+pub fn verify_zap_request(
+    event: &Event,
+    amount: u64,
+    nostr_zapper_keys: &nostr::Keys,
+) -> Result<(), anyhow::Error> {
     if event.kind != Kind::ZapRequest {
         return Err(anyhow!("Zap request has wrong kind: {}", event.kind));
     }
@@ -245,23 +247,28 @@ fn verify_zap_request(event: &Event, amount: u64) -> Result<(), anyhow::Error> {
     let mut p_tag = false;
     let mut relays_tag = false;
     let mut big_p_tag = None;
-    for tag in event.tags.iter() {
-        match tag.kind() {
-            TagKind::Amount => {
-                let zap_amount = tag.content().unwrap().parse::<u64>()?;
-                if amount != zap_amount {
-                    return Err(anyhow!(
-                        "Zap request amount does not match query amount: {amount}!={zap_amount}"
-                    ));
+    for tag in event.tags.as_slice() {
+        if let Ok(nip57tag) = Nip57Tag::parse(tag.clone()) {
+            match nip57tag {
+                Nip57Tag::Amount {
+                    millisats,
+                    bolt11: _,
+                } => {
+                    if amount != millisats {
+                        return Err(anyhow!(
+                            "Zap request amount does not match query amount: {amount}!={millisats}"
+                        ));
+                    }
                 }
-            }
-            TagKind::Relays => {
-                if tag.content().is_some() {
+                Nip57Tag::Relays(relays) if !relays.is_empty() => {
                     relays_tag = true;
                 }
+                _ => {}
             }
-            TagKind::SingleLetter(single_letter_tag) => match single_letter_tag.character {
-                nostr_sdk::Alphabet::A => {
+        }
+        if let Some(single_letter_tag) = tag.single_letter_tag() {
+            match single_letter_tag.character {
+                nostr::Alphabet::A => {
                     if !single_letter_tag.uppercase {
                         let coord = tag.content().ok_or(anyhow!("Missing value in `a` tag"))?;
                         let parts: Vec<&str> = coord.split(':').collect();
@@ -272,11 +279,11 @@ fn verify_zap_request(event: &Event, amount: u64) -> Result<(), anyhow::Error> {
                             .parse::<u16>()
                             .map_err(|_| anyhow!("Invalid kind"))?;
                         Kind::from_u16(kind);
-                        nostr_sdk::PublicKey::from_hex(parts[1])
+                        nostr::PublicKey::from_hex(parts[1])
                             .map_err(|_| anyhow!("Invalid pubkey"))?;
                     }
                 }
-                nostr_sdk::Alphabet::E => {
+                nostr::Alphabet::E => {
                     if !single_letter_tag.uppercase {
                         if e_tag {
                             return Err(anyhow!("Zap request MUST have 0 or 1 e tags"));
@@ -284,12 +291,12 @@ fn verify_zap_request(event: &Event, amount: u64) -> Result<(), anyhow::Error> {
                         e_tag = true;
                     }
                 }
-                nostr_sdk::Alphabet::P => {
+                nostr::Alphabet::P => {
                     if single_letter_tag.uppercase {
                         if big_p_tag.is_none() {
                             let key = tag.content().ok_or(anyhow!("Missing value in `P` tag"))?;
                             big_p_tag = Some(
-                                nostr_sdk::PublicKey::from_hex(key)
+                                nostr::PublicKey::from_hex(key)
                                     .map_err(|_| anyhow!("Invalid pubkey"))?,
                             );
                         } else {
@@ -303,23 +310,22 @@ fn verify_zap_request(event: &Event, amount: u64) -> Result<(), anyhow::Error> {
                     }
                 }
                 _ => (),
-            },
-            _ => (),
+            }
         }
     }
 
     if !p_tag {
         return Err(anyhow!("Zap request MUST have only one p tag"));
     }
-    if let Some(big_p) = big_p_tag {
-        if *event.tags.public_keys().next().unwrap() != big_p {
-            return Err(anyhow!("`P` tag must be equal to pubkey"));
+
+    if let Some(big_p_tag) = big_p_tag {
+        if big_p_tag != nostr_zapper_keys.public_key() {
+            return Err(anyhow!("Zap request has wrong `P` tag"));
         }
     }
+
     if !relays_tag {
-        return Err(anyhow!(
-            "There should be a `relays` tag in the Zap request!"
-        ));
+        log::info!("There should be a `relays` tag in the Zap request!");
     }
 
     Ok(())
