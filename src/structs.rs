@@ -13,7 +13,7 @@ pub struct PluginState {
     pub users: Arc<Mutex<HashMap<String, UserMetadata>>>,
     pub plugin_dir: PathBuf,
     pub base_url: Url,
-    pub nostr_zapper_keys: Option<nostr_sdk::key::Keys>,
+    pub nostr_zapper_keys: Option<nostr::key::Keys>,
     pub payindex: u64,
     pub listen_address: SocketAddr,
 }
