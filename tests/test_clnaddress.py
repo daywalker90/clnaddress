@@ -24,6 +24,7 @@ from nostr_sdk import (
     Keys,
     Kind,
     NostrSigner,
+    Tag,
     ZapRequestData,
     HandleNotification,
     Event,
@@ -153,10 +154,9 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     response_invoice = requests.get(callback, params={"amount": 2})
     assert response_invoice.status_code == 200
     assert "pr" in response_invoice.json()
-    pay = l1.rpc.call("pay", {"bolt11": response_invoice.json()["pr"]})
-    invoice = l2.rpc.call("listinvoices", {"payment_hash": pay["payment_hash"]})[
-        "invoices"
-    ][0]
+    invstring = response_invoice.json()["pr"]
+    l1.rpc.call("xpay", {"invstring": invstring})
+    invoice = l2.rpc.call("listinvoices", {"invstring": invstring})["invoices"][0]
     assert invoice["status"] == "paid"
     assert invoice["amount_received_msat"] == 2
     assert json.loads(invoice["description"]) == [["text/plain", "Thank you :)"]]
@@ -183,10 +183,9 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     response_invoice = requests.get(callback, params={"amount": 2100})
     assert response_invoice.status_code == 200
     assert "pr" in response_invoice.json()
-    pay = l1.rpc.call("pay", {"bolt11": response_invoice.json()["pr"]})
-    invoice = l2.rpc.call("listinvoices", {"payment_hash": pay["payment_hash"]})[
-        "invoices"
-    ][0]
+    invstring = response_invoice.json()["pr"]
+    l1.rpc.call("xpay", {"invstring": invstring})
+    invoice = l2.rpc.call("listinvoices", {"invstring": invstring})["invoices"][0]
     assert invoice["status"] == "paid"
     assert invoice["amount_received_msat"] == 2100
     assert json.loads(invoice["description"]) == [
@@ -224,10 +223,9 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     response_invoice = requests.get(callback, params={"amount": 3000})
     assert response_invoice.status_code == 200
     assert "pr" in response_invoice.json()
-    pay = l1.rpc.call("pay", {"bolt11": response_invoice.json()["pr"]})
-    invoice = l2.rpc.call("listinvoices", {"payment_hash": pay["payment_hash"]})[
-        "invoices"
-    ][0]
+    invstring = response_invoice.json()["pr"]
+    l1.rpc.call("xpay", {"invstring": invstring})
+    invoice = l2.rpc.call("listinvoices", {"invstring": invstring})["invoices"][0]
     assert invoice["status"] == "paid"
     assert invoice["amount_received_msat"] == 3000
     assert json.loads(invoice["description"]) == [
@@ -291,23 +289,27 @@ async def test_nostr(nostr_relay, node_factory, get_plugin):  # noqa: F811
 
     response = requests.get(f"http://{url}/.well-known/lnurlp/{user_name}")
     assert response.status_code == 200
+    nostr_pubkey = response.json()["nostrPubkey"]
 
     callback = response.json()["callback"]
     client_keys = Keys.generate()
     receiver_keys = Keys.generate()
-    zap_request = EventBuilder.public_zap_request(
-        ZapRequestData(receiver_keys.public_key(), [relay_url]).amount(2100)
-    ).sign_with_keys(client_keys)
+    zap_request = (
+        EventBuilder.public_zap_request(
+            ZapRequestData(receiver_keys.public_key(), [relay_url]).amount(2100)
+        )
+        .tags([Tag.parse(["P", nostr_pubkey])])
+        .sign_with_keys(client_keys)
+    )
     LOGGER.info(f"python_zap_request:{zap_request.as_json()}")
     response_invoice = requests.get(
         callback, params={"amount": 2100, "nostr": zap_request.as_json()}
     )
     assert response_invoice.status_code == 200
     assert "pr" in response_invoice.json()
-    pay = l1.rpc.call("pay", {"bolt11": response_invoice.json()["pr"]})
-    invoice = l2.rpc.call("listinvoices", {"payment_hash": pay["payment_hash"]})[
-        "invoices"
-    ][0]
+    invstring = response_invoice.json()["pr"]
+    l1.rpc.call("xpay", {"invstring": invstring})
+    invoice = l2.rpc.call("listinvoices", {"invstring": invstring})["invoices"][0]
     assert invoice["status"] == "paid"
     assert invoice["amount_received_msat"] == 2100
     assert json.loads(invoice["description"]) == json.loads(zap_request.as_json())
