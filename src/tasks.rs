@@ -7,7 +7,7 @@ use nostr::{
     nips::nip57::Nip57Tag,
     types::Timestamp,
 };
-use nostr_sdk::client::Client;
+use nostr_sdk::{authenticator::SignerAuthenticator, client::Client};
 use tokio::fs;
 
 use crate::{CLNADDRESS_PAYINDEX_FILENAME, structs::PluginState};
@@ -57,7 +57,9 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                             log::debug!("{zap_receipt_json}");
                         }
 
-                        let client = Client::new();
+                        let client = Client::builder()
+                            .authenticator(SignerAuthenticator::new(keys.clone()))
+                            .build();
 
                         for tag in zap_request.tags {
                             if let Ok(Nip57Tag::Relays(relay_urls)) = Nip57Tag::parse(tag) {
