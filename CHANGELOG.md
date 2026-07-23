@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- validation of optional `P` tag
+
 ## [0.1.4] 2026-03-29
 
 ### Added
