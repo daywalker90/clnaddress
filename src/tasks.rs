@@ -81,6 +81,9 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                                 for (url, failure) in o.failed {
                                     log::warn!("Sending to relay {url} failed: {failure}");
                                 }
+                                for (url, _success) in o.success {
+                                    log::info!("Successfully sent zap_receipt to relay: {url}");
+                                }
                             }
                             Err(e) => log::warn!("Could not send zap receipt: {e}"),
                         }
