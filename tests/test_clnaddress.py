@@ -1,36 +1,33 @@
-#!/usr/bin/python
-
+import asyncio
 import datetime
 import hashlib
 import inspect
 import json
 import logging
-import time
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any, Awaitable, Callable, Union
+from typing import Any, Union
 
 import pytest
 import requests
-import asyncio
-from pyln.testing.fixtures import *  # noqa: F403
-from pyln.testing.utils import wait_for, TIMEOUT
-from util import get_plugin  # noqa: F401
-
 from nostr_sdk import (
     Client,
-    RelayUrl,
+    Event,
     EventBuilder,
     Filter,
+    HandleNotification,
     Keys,
     Kind,
     NostrSigner,
+    NostrWalletConnectUri,
+    PublicKey,
+    RelayUrl,
     Tag,
     ZapRequestData,
-    HandleNotification,
-    Event,
-    PublicKey,
-    NostrWalletConnectUri,
 )
+from pyln.testing.fixtures import *
+from pyln.testing.utils import TIMEOUT, wait_for
+from util import get_plugin  # noqa: F401
 
 LOGGER = logging.getLogger(__name__)
 
@@ -73,7 +70,7 @@ async def fetch_event_responses(
     handler = NotificationHandler(events, stop_after)
     task = asyncio.create_task(client.handle_notifications(handler))
 
-    time.sleep(1)
+    await asyncio.sleep(1)
     if inspect.iscoroutine(action):
         action_result = await action
     elif inspect.iscoroutinefunction(action):
@@ -113,7 +110,7 @@ async def fetch_info_event(
     while events.len() < 1 and (datetime.now() - start_time) < timedelta(
         seconds=TIMEOUT
     ):
-        time.sleep(1)
+        await asyncio.sleep(1)
         events = await client.fetch_events(
             response_filter, timeout=timedelta(seconds=1)
         )
