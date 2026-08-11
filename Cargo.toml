@@ -24,8 +24,8 @@ url = { version = "2", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 # nostr = { git = "https://github.com/rust-nostr/nostr.git", rev = "ff5be7d1416ea201887a02f648795010a3cbdf49" }
 # nostr-sdk = { git = "https://github.com/rust-nostr/nostr.git", rev = "ff5be7d1416ea201887a02f648795010a3cbdf49" }
-nostr = { version = "0.45.0-alpha.6" }
-nostr-sdk = { version = "0.45.0-alpha.6" }
+nostr = { version = "0.45.1" }
+nostr-sdk = { version = "0.45.1" }
 parking_lot = "0.12"
 
 [profile.optimized]

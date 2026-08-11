@@ -10,7 +10,8 @@ use cln_rpc::{
     primitives::{Amount, AmountOrAny},
 };
 use nostr::{
-    event::{Event, Kind, TagCodec},
+    event::{Event, Kind},
+    filter::SingleLetterTag,
     nips::nip57::Nip57Tag,
 };
 use serde_json::json;
@@ -234,7 +235,7 @@ fn lnurl_error(error: &str) -> Json<serde_json::Value> {
 pub fn verify_zap_request(
     event: &Event,
     amount: u64,
-    nostr_zapper_keys: &nostr::Keys,
+    nostr_zapper_keys: &nostr::key::Keys,
 ) -> Result<(), anyhow::Error> {
     if event.kind != Kind::ZapRequest {
         return Err(anyhow!("Zap request has wrong kind: {}", event.kind));
@@ -267,46 +268,41 @@ pub fn verify_zap_request(
             }
         }
         if let Some(single_letter_tag) = tag.single_letter_tag() {
-            match single_letter_tag.character {
-                nostr::Alphabet::A => {
-                    if !single_letter_tag.uppercase {
-                        let coord = tag.content().ok_or(anyhow!("Missing value in `a` tag"))?;
-                        let parts: Vec<&str> = coord.split(':').collect();
-                        if parts.len() < 2 || parts.len() > 3 {
-                            return Err(anyhow!("Invalid `a` tag format"));
-                        }
-                        let kind = parts[0]
-                            .parse::<u16>()
-                            .map_err(|_| anyhow!("Invalid kind"))?;
-                        Kind::from_u16(kind);
-                        nostr::PublicKey::from_hex(parts[1])
-                            .map_err(|_| anyhow!("Invalid pubkey"))?;
+            match single_letter_tag {
+                SingleLetterTag::LOWERCASE_A => {
+                    let coord = tag.content().ok_or(anyhow!("Missing value in `a` tag"))?;
+                    let parts: Vec<&str> = coord.split(':').collect();
+                    if parts.len() < 2 || parts.len() > 3 {
+                        return Err(anyhow!("Invalid `a` tag format"));
                     }
+                    let kind = parts[0]
+                        .parse::<u16>()
+                        .map_err(|_| anyhow!("Invalid kind"))?;
+                    Kind::from_u16(kind);
+                    nostr::key::PublicKey::from_hex(parts[1])
+                        .map_err(|_| anyhow!("Invalid pubkey"))?;
                 }
-                nostr::Alphabet::E => {
-                    if !single_letter_tag.uppercase {
-                        if e_tag {
-                            return Err(anyhow!("Zap request MUST have 0 or 1 e tags"));
-                        }
-                        e_tag = true;
+                SingleLetterTag::LOWERCASE_E => {
+                    if e_tag {
+                        return Err(anyhow!("Zap request MUST have 0 or 1 e tags"));
                     }
+                    e_tag = true;
                 }
-                nostr::Alphabet::P => {
-                    if single_letter_tag.uppercase {
-                        if big_p_tag.is_none() {
-                            let key = tag.content().ok_or(anyhow!("Missing value in `P` tag"))?;
-                            big_p_tag = Some(
-                                nostr::PublicKey::from_hex(key)
-                                    .map_err(|_| anyhow!("Invalid pubkey"))?,
-                            );
-                        } else {
-                            return Err(anyhow!("Zap request has too many `P` tags"));
-                        }
-                    } else if !single_letter_tag.uppercase {
-                        if p_tag {
-                            return Err(anyhow!("Zap request MUST have only one p tag"));
-                        }
-                        p_tag = true;
+                SingleLetterTag::LOWERCASE_P => {
+                    if p_tag {
+                        return Err(anyhow!("Zap request MUST have only one p tag"));
+                    }
+                    p_tag = true;
+                }
+                SingleLetterTag::UPPERCASE_P => {
+                    if big_p_tag.is_none() {
+                        let key = tag.content().ok_or(anyhow!("Missing value in `P` tag"))?;
+                        big_p_tag = Some(
+                            nostr::key::PublicKey::from_hex(key)
+                                .map_err(|_| anyhow!("Invalid pubkey"))?,
+                        );
+                    } else {
+                        return Err(anyhow!("Zap request has too many `P` tags"));
                     }
                 }
                 _ => (),

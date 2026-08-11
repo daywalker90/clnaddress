@@ -3,9 +3,8 @@ use std::{path::Path, time::Duration};
 use cln_plugin::Plugin;
 use cln_rpc::{ClnRpc, model::requests::WaitanyinvoiceRequest};
 use nostr::{
-    event::{Event, EventBuilder, FinalizeEventAsync, TagCodec},
-    nips::nip57::Nip57Tag,
-    types::Timestamp,
+    event::{Event, FinalizeEventAsync},
+    nips::nip57::{self, Nip57Tag},
 };
 use nostr_sdk::{authenticator::SignerAuthenticator, client::Client};
 use tokio::fs;
@@ -35,16 +34,12 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                             log::warn!("No bolt11 found for zap receipt!");
                             continue;
                         };
-                        let mut zap_receipt = EventBuilder::zap_receipt(
-                            bolt11,
-                            o.payment_preimage
-                                .map(|p| serde_json::to_string(&p).unwrap()),
-                            &zap_request,
-                        );
-                        if let Some(paid_at) = o.paid_at {
-                            zap_receipt =
-                                zap_receipt.custom_created_at(Timestamp::from_secs(paid_at));
-                        }
+                        let Some(preimage) = o.payment_preimage else {
+                            log::warn!("No preimage found for zap receipt!");
+                            continue;
+                        };
+                        let zap_receipt = nip57::ZapReceipt::new(bolt11, &zap_request)
+                            .preimage(serde_json::to_string(&preimage)?);
 
                         let zap_receipt = match zap_receipt.finalize_async(&keys).await {
                             Ok(o) => o,

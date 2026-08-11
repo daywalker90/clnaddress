@@ -4,6 +4,7 @@ import hashlib
 import inspect
 import json
 import logging
+import uuid
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any, Union
@@ -15,15 +16,13 @@ from nostr_sdk import (
     Event,
     EventBuilder,
     Filter,
-    HandleNotification,
     Keys,
     Kind,
-    NostrSigner,
     NostrWalletConnectUri,
     PublicKey,
     RelayUrl,
+    ReqTarget,
     Tag,
-    ZapRequestData,
 )
 from pyln.testing.fixtures import *
 from pyln.testing.utils import TIMEOUT, wait_for
@@ -32,23 +31,7 @@ from util import get_plugin  # noqa: F401
 LOGGER = logging.getLogger(__name__)
 
 
-class NotificationHandler(HandleNotification):
-    def __init__(self, events_list, stop_after):
-        self.events_list = events_list
-        self.stop_after = stop_after
-        self._done = asyncio.Event()
-
-    async def handle(self, relay_url, subscription_id, event: Event):
-        LOGGER.info(f"Received new event from {relay_url}: {event.as_json()}")
-        self.events_list.append(event)
-        if len(self.events_list) >= self.stop_after:
-            self._done.set()
-
-    async def handle_msg(self, relay_url, msg):
-        _var = None
-
-
-Action = Union[
+Action = Union[  # noqa: UP007
     Callable[[], Awaitable[None]],
     Callable[[], None],
     Awaitable[None],
@@ -65,12 +48,31 @@ async def fetch_event_responses(
 ) -> tuple[list[Event], Any]:
     events = []
     response_filter = Filter().kind(Kind(event_kind)).pubkey(client_pubkey)
-    await client.subscribe(response_filter)
+    target = ReqTarget.auto([response_filter])
 
-    handler = NotificationHandler(events, stop_after)
-    task = asyncio.create_task(client.handle_notifications(handler))
+    subscription_id = uuid.uuid4().hex
+    LOGGER.info(f"Subscribing with id {subscription_id} to {response_filter}")
+
+    await client.subscribe(target, subscription_id)
+
+    async def collect_events():
+        stream = client.notifications()
+
+        while len(events) < stop_after:
+            notification = await stream.next()
+
+            if notification.is_new_event():
+                event = notification.event
+                relay_url = notification.relay_url
+
+                LOGGER.info(f"Received new event from {relay_url}: {event.as_json()}")
+
+                events.append(event)
+
+    task = asyncio.create_task(collect_events())
 
     await asyncio.sleep(1)
+
     if inspect.iscoroutine(action):
         action_result = await action
     elif inspect.iscoroutinefunction(action):
@@ -81,10 +83,10 @@ async def fetch_event_responses(
         raise TypeError("action must be a callable or an awaitable")
 
     try:
-        await asyncio.wait_for(handler._done.wait(), timeout=timeout)
+        await asyncio.wait_for(task, timeout=timeout)
     except asyncio.TimeoutError:
         print(
-            f"Timeout reached after {timeout} seconds, collected {len(events)} events"
+            f"Timeout reached after {timeout} seconds, collected {len(events)} events",
         )
     finally:
         task.cancel()
@@ -93,9 +95,10 @@ async def fetch_event_responses(
         except asyncio.CancelledError:
             pass
 
-    await client.unsubscribe_all()
+        await client.unsubscribe_all()
+
     assert len(events) == stop_after
-    return (events, action_result)
+    return events, action_result
 
 
 async def fetch_info_event(
@@ -103,20 +106,17 @@ async def fetch_info_event(
     uri: NostrWalletConnectUri,
 ) -> Event:
     response_filter = Filter().kind(Kind(13194)).author(uri.public_key())
-    events = await client.fetch_events(
-        response_filter, timeout=timedelta(seconds=TIMEOUT)
-    )
+    target = ReqTarget.auto([response_filter])
+    events = await client.fetch_events(target, timeout=timedelta(seconds=TIMEOUT))
     start_time = datetime.now()
-    while events.len() < 1 and (datetime.now() - start_time) < timedelta(
+    while len(events) < 1 and (datetime.now() - start_time) < timedelta(
         seconds=TIMEOUT
     ):
         await asyncio.sleep(1)
-        events = await client.fetch_events(
-            response_filter, timeout=timedelta(seconds=1)
-        )
-    assert events.len() == 1
+        events = await client.fetch_events(target, timeout=timedelta(seconds=1))
+    assert len(events) == 1
 
-    return events.first()
+    return events[0]
 
 
 def test_clnaddress(node_factory, get_plugin):  # noqa: F811
@@ -284,22 +284,22 @@ async def test_nostr(nostr_relay, node_factory, get_plugin):  # noqa: F811
 
     l2.rpc.call("clnaddress-adduser", [user_name, False, "MONEY, NOW!"])
 
-    response = requests.get(f"http://{url}/.well-known/lnurlp/{user_name}")
+    response = requests.get(f"http://{url}/.well-known/lnurlp/{user_name}")  # noqa: ASYNC210
     assert response.status_code == 200
     nostr_pubkey = response.json()["nostrPubkey"]
 
     callback = response.json()["callback"]
     client_keys = Keys.generate()
     receiver_keys = Keys.generate()
-    zap_request = (
-        EventBuilder.public_zap_request(
-            ZapRequestData(receiver_keys.public_key(), [relay_url]).amount(2100)
-        )
-        .tags([Tag.parse(["P", nostr_pubkey])])
-        .sign_with_keys(client_keys)
+    zap_request = build_zap_request(
+        client_keys,
+        receiver_keys.public_key(),
+        [str(relay_url)],
+        nostr_key=nostr_pubkey,
+        amount_msats=2100,
     )
     LOGGER.info(f"python_zap_request:{zap_request.as_json()}")
-    response_invoice = requests.get(
+    response_invoice = requests.get(  # noqa: ASYNC210
         callback, params={"amount": 2100, "nostr": zap_request.as_json()}
     )
     assert response_invoice.status_code == 200
@@ -317,15 +317,15 @@ async def test_nostr(nostr_relay, node_factory, get_plugin):  # noqa: F811
     )
     assert invoice["amount_msat"] == 2100
 
-    signer = NostrSigner.keys(receiver_keys)
-    nostr_client = Client(signer)
+    nostr_client = Client()
     await nostr_client.add_relay(relay_url)
     await nostr_client.connect()
 
     zap_filter = Filter().kind(Kind(9735))
-    events = await nostr_client.fetch_events(zap_filter, timeout=timedelta(seconds=10))
-    assert events.len() > 0, "No zap receipts found"
-    zap_receipt = json.loads(events.first().as_json())
+    req_target = ReqTarget.auto([zap_filter])
+    events = await nostr_client.fetch_events(req_target, timeout=timedelta(seconds=10))
+    assert len(events) > 0, "No zap receipts found"
+    zap_receipt = json.loads(events[0].as_json())
     LOGGER.info(zap_receipt)
     description_found = False
     for tag in zap_receipt["tags"]:
@@ -333,3 +333,19 @@ async def test_nostr(nostr_relay, node_factory, get_plugin):  # noqa: F811
             description_found = True
             assert json.loads(tag[1]) == json.loads(zap_request.as_json())
     assert description_found
+
+
+def build_zap_request(
+    sender_keys, recipient_pubkey, relays, amount_msats=None, nostr_key=None, message=""
+):
+    tags = [
+        Tag.public_key(recipient_pubkey),
+        Tag.custom("relays", relays),
+    ]
+    if nostr_key:
+        tags.append(Tag.custom("P", [nostr_key]))
+    if amount_msats:
+        tags.append(Tag.custom("amount", [str(amount_msats)]))
+
+    builder = EventBuilder(Kind(9734), message).tags(tags)
+    return builder.finalize(sender_keys)
