@@ -239,11 +239,11 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
     assert invoice["amount_msat"] == 3000
 
     response_invoice = requests.get(callback, params={"amount": 1})
-    assert response_invoice.status_code == 400
+    assert response_invoice.status_code == 200
     assert response_invoice.json()["reason"] == "`amount` below minimum: 1<2"
 
     response_invoice = requests.get(callback, params={"amount": 3001})
-    assert response_invoice.status_code == 400
+    assert response_invoice.status_code == 200
     assert response_invoice.json()["reason"] == "`amount` above maximum: 3001>3000"
 
     response_invoice = requests.get(callback)
@@ -254,6 +254,62 @@ def test_clnaddress(node_factory, get_plugin):  # noqa: F811
 
     l2.rpc.call("clnaddress-adduser", {"user": 69, "description": 42})
     l2.rpc.call("clnaddress-deluser", {"user": 69})
+
+
+def test_nostr_key_file(tmp_path, node_factory, get_plugin):  # noqa: F811
+    port = node_factory.get_unused_port()
+    url = f"localhost:{port}"
+    zapper_keys = Keys.generate()
+    key_file = tmp_path / "nostr-key"
+    key_file.write_text(zapper_keys.secret_key().to_hex())
+    l2 = node_factory.get_node(
+        options={
+            "log-level": "debug",
+            "plugin": get_plugin,
+            "clnaddress-listen": url,
+            "clnaddress-base-url": f"http://{url}/",
+            "clnaddress-nostr-privkey-file": str(key_file),
+        },
+    )
+    wait_for(lambda: l2.daemon.is_in_log("Starting lnurlp server."))
+
+    response = requests.get(f"http://{url}/lnurlp")
+    assert response.status_code == 200
+    assert response.json()["nostrPubkey"] == zapper_keys.public_key().to_hex()
+
+
+def test_nostr_key_migration(node_factory, get_plugin):  # noqa: F811
+    port = node_factory.get_unused_port()
+    url = f"localhost:{port}"
+    zapper_keys = Keys.generate()
+    l1 = node_factory.get_node(
+        options={
+            "log-level": "debug",
+            "plugin": get_plugin,
+            "clnaddress-listen": url,
+            "clnaddress-base-url": f"http://{url}/",
+            "clnaddress-nostr-privkey": zapper_keys.secret_key().to_hex(),
+        }
+    )
+    wait_for(lambda: l1.daemon.is_in_log("Starting lnurlp server."))
+
+    network = l1.rpc.getinfo()["network"]
+    key_file = l1.lightning_dir / network / "clnaddress" / "nostr-secret-key"
+    assert key_file.read_text().strip() == zapper_keys.secret_key().to_hex()
+    assert (key_file.stat().st_mode & 0o777) == 0o600
+
+    response = requests.get(f"http://{url}/lnurlp")
+    assert response.status_code == 200
+    assert response.json()["nostrPubkey"] == zapper_keys.public_key().to_hex()
+
+    # Removing the legacy option keeps zap working via the migrated file.
+    l1.daemon.opts.pop("clnaddress-nostr-privkey", None)
+    l1.restart()
+    wait_for(lambda: l1.daemon.is_in_log("Starting lnurlp server."))
+
+    response = requests.get(f"http://{url}/lnurlp")
+    assert response.status_code == 200
+    assert response.json()["nostrPubkey"] == zapper_keys.public_key().to_hex()
 
 
 @pytest.mark.asyncio

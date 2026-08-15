@@ -25,7 +25,7 @@ pub async fn get_lnurlp_config(
 ) -> Result<Json<LnurlpConfig>, axum::response::Response> {
     if let Some(axum::extract::Path(user)) = maybe_user {
         let metadata = generate_user_metadata(&state, &user)
-            .map_err(|e| (StatusCode::NOT_FOUND, lnurl_error(&e.to_string())).into_response())?;
+            .map_err(|e| (StatusCode::OK, lnurl_error(&e.to_string())).into_response())?;
 
         Ok(Json(LnurlpConfig {
             callback: state
@@ -73,56 +73,50 @@ pub async fn get_invoice(
     )
     .map_err(axum::response::IntoResponse::into_response)?;
 
-    let description = match &params.nostr {
-        Some(d) => {
-            if state.nostr_zapper_keys.is_none() {
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    lnurl_error("Nostr Zaps not configured"),
+    let description =
+        match &params.nostr {
+            Some(d) => {
+                if state.nostr_zapper_keys.is_none() {
+                    return Err(
+                        (StatusCode::OK, lnurl_error("Nostr Zaps not configured")).into_response()
+                    );
+                }
+                let zap_request: Event = Event::from_json(d)
+                    .map_err(|e| (StatusCode::OK, lnurl_error(&e.to_string())).into_response())?;
+                zap_request
+                    .verify()
+                    .map_err(|e| (StatusCode::OK, lnurl_error(&e.to_string())).into_response())?;
+                let zap_request_json = zap_request
+                    .try_as_json()
+                    .map_err(|e| (StatusCode::OK, lnurl_error(&e.to_string())).into_response())?;
+                log::debug!("zap_request: {zap_request_json}");
+                verify_zap_request(
+                    &zap_request,
+                    params.amount,
+                    &state.nostr_zapper_keys.unwrap(),
                 )
-                    .into_response());
+                .map_err(|e| (StatusCode::OK, lnurl_error(&e.to_string())).into_response())?;
+                zap_request_json
             }
-            let zap_request: Event = Event::from_json(d).map_err(|e| {
-                (StatusCode::BAD_REQUEST, lnurl_error(&e.to_string())).into_response()
-            })?;
-            zap_request.verify().map_err(|e| {
-                (StatusCode::BAD_REQUEST, lnurl_error(&e.to_string())).into_response()
-            })?;
-            let zap_request_json = zap_request.try_as_json().map_err(|e| {
-                (StatusCode::BAD_REQUEST, lnurl_error(&e.to_string())).into_response()
-            })?;
-            log::debug!("zap_request: {zap_request_json}");
-            verify_zap_request(
-                &zap_request,
-                params.amount,
-                &state.nostr_zapper_keys.unwrap(),
-            )
-            .map_err(|e| (StatusCode::BAD_REQUEST, lnurl_error(&e.to_string())).into_response())?;
-            zap_request_json
-        }
-        None => {
-            if let Some(user) = maybe_user {
-                serde_json::to_string(&generate_user_metadata(&state, &user).map_err(|e| {
-                    (StatusCode::NOT_FOUND, lnurl_error(&e.to_string())).into_response()
-                })?)
-                .unwrap()
-            } else {
-                serde_json::to_string(&vec![vec![
-                    "text/plain".to_string(),
-                    state.default_description,
-                ]])
-                .unwrap()
+            None => {
+                if let Some(user) = maybe_user {
+                    serde_json::to_string(&generate_user_metadata(&state, &user).map_err(|e| {
+                        (StatusCode::OK, lnurl_error(&e.to_string())).into_response()
+                    })?)
+                    .unwrap()
+                } else {
+                    serde_json::to_string(&vec![vec![
+                        "text/plain".to_string(),
+                        state.default_description,
+                    ]])
+                    .unwrap()
+                }
             }
-        }
-    };
+        };
 
-    let mut cln_client = cln_rpc::ClnRpc::new(&state.rpc_path).await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            lnurl_error(&e.to_string()),
-        )
-            .into_response()
-    })?;
+    let mut cln_client = cln_rpc::ClnRpc::new(&state.rpc_path)
+        .await
+        .map_err(|e| (StatusCode::OK, lnurl_error(&e.to_string())).into_response())?;
 
     let amount_msat = if params.amount > 0 {
         AmountOrAny::Amount(Amount::from_msat(params.amount))
@@ -143,13 +137,7 @@ pub async fn get_invoice(
             deschashonly: Some(true),
         })
         .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                lnurl_error(&e.to_string()),
-            )
-                .into_response()
-        })?;
+        .map_err(|e| (StatusCode::OK, lnurl_error(&e.to_string())).into_response())?;
 
     Ok(Json(LnurlpCallback {
         pr: cln_response.bolt11,
@@ -164,7 +152,7 @@ fn validate_invoice_amount(
 ) -> Result<(), (axum::http::StatusCode, axum::Json<serde_json::Value>)> {
     if requested_amount < min_sendable_msat {
         return Err((
-            StatusCode::BAD_REQUEST,
+            StatusCode::OK,
             lnurl_error(&format!(
                 "`amount` below minimum: {requested_amount}<{min_sendable_msat}",
             )),
@@ -172,7 +160,7 @@ fn validate_invoice_amount(
     }
     if requested_amount > max_sendable_msat {
         return Err((
-            StatusCode::BAD_REQUEST,
+            StatusCode::OK,
             lnurl_error(&format!(
                 "`amount` above maximum: {requested_amount}>{max_sendable_msat}",
             )),

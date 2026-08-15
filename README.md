@@ -97,7 +97,8 @@ Note: Release binaries are built using ``cross`` and the ``optimized`` profile.
 - ``clnaddress-description``: Description shown in wallets, defaults to ``Thank you :)``
 - ``clnaddress-listen``: Listen address for the LNURL web server. Use ``[::]`` to bind to everything. Defaults to ``localhost:9797``
 - ``clnaddress-base-url``: Base URL of you lnaddress service, e.g. ``https://sub.domaster.org/path/``, no default and must be set
-- ``clnaddress-nostr-privkey``: Nostr private key for signing zap receipts, no default and optional, but required for zap support. It is recommended to create another key for this and not use your usual nostr key.
+- ``clnaddress-nostr-privkey``: Nostr private key for signing zap receipts, no default and optional, but required for zap support. It is recommended to create another key for this and not use your usual nostr key. Deprecated: on startup the key is automatically stored in a file (``<lightning_dir>/clnaddress/nostr-secret-key``) with ``chmod 600`` permissions, so you can remove this option and the plugin keeps reading the key from the file.
+- ``clnaddress-nostr-privkey-file``: Path to a file containing the Nostr private key for signing zap receipts (preferred over ``clnaddress-nostr-privkey``). Use this to avoid exposing the key in your config file and via ``listconfigs``. Restrict permissions on the file, e.g. ``chmod 600``. When both options are set, the file takes precedence and ``clnaddress-nostr-privkey`` is ignored.
 
 # Methods
 * **clnaddress-adduser** *user* [*is_email*] [*description*]
@@ -135,6 +136,8 @@ location ~* ^/\.well-known/lnurlp/([^/]+) {
 ```
 Make sure to use the correct ``proxy_pass`` address, usually it's just ``http://`` + ``clnaddress-listen`` + ``/``
 
+Rate limiting, request timeouts and similar DoS protection are expected to be handled by your reverse proxy (e.g. with ``limit_req`` and the various ``*_timeout`` directives in nginx).
+
 ### LNURL
 Your LNURL gets printed to log on plugin start, watch out for the line starting with ``LNURL:``
 
@@ -142,6 +145,6 @@ Your LNURL gets printed to log on plugin start, watch out for the line starting 
 ``clnaddress`` supports multiple ln-addresses at the same time and you can add or remove users with the ``clnaddress-adduser`` and ``clnaddress-deluser`` methods.
 
 ### Nostr
-In order for zap receipts to be send you must specify a ``clnaddress-nostr-privkey`` that will sign the receipts. It is recommended to create another key for this and not use your usual nostr key.
+In order for zap receipts to be send you must specify a nostr private key that will sign the receipts. It is recommended to create another key for this and not use your usual nostr key. Point ``clnaddress-nostr-privkey-file`` at a file (permissions ``chmod 600``) containing the key so it is not exposed in the config or ``listconfigs``. If you only set the deprecated ``clnaddress-nostr-privkey`` option, the key is automatically migrated to ``<lightning_dir>/clnaddress/nostr-secret-key`` on startup, so you can remove the option afterwards without losing zap support.
 
 

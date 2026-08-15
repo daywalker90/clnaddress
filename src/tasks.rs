@@ -58,7 +58,7 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
 
                         for tag in zap_request.tags {
                             if let Ok(Nip57Tag::Relays(relay_urls)) = Nip57Tag::parse(tag) {
-                                for relay_url in &relay_urls {
+                                for relay_url in relay_urls.iter().take(10) {
                                     if let Err(e) = client.add_relay(relay_url).await {
                                         log::warn!(
                                             "Could not add relay {relay_url} to client: {e}"
@@ -70,18 +70,20 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
                         if client.relays().await.is_empty() {
                             log::warn!("No relays included in zap request!");
                         }
-                        client.connect().and_wait(Duration::from_secs(30)).await;
-                        match client.send_event(&zap_receipt).await {
-                            Ok(o) => {
-                                for (url, failure) in o.failed {
-                                    log::warn!("Sending to relay {url} failed: {failure}");
+                        tokio::task::spawn(async move {
+                            client.connect().and_wait(Duration::from_secs(10)).await;
+                            match client.send_event(&zap_receipt).await {
+                                Ok(o) => {
+                                    for (url, failure) in o.failed {
+                                        log::warn!("Sending to relay {url} failed: {failure}");
+                                    }
+                                    for (url, _success) in o.success {
+                                        log::info!("Successfully sent zap_receipt to relay: {url}");
+                                    }
                                 }
-                                for (url, _success) in o.success {
-                                    log::info!("Successfully sent zap_receipt to relay: {url}");
-                                }
+                                Err(e) => log::warn!("Could not send zap receipt: {e}"),
                             }
-                            Err(e) => log::warn!("Could not send zap receipt: {e}"),
-                        }
+                        });
                     }
                 }
             }
@@ -94,6 +96,15 @@ pub async fn zap_receipt_sender(plugin: Plugin<PluginState>) -> Result<(), anyho
 
 pub async fn save_payindex(path: &Path, payindex: u64) -> Result<(), anyhow::Error> {
     let serialized = serde_json::to_string(&payindex)?;
-    fs::write(path.join(CLNADDRESS_PAYINDEX_FILENAME), serialized).await?;
+    fs::write(
+        path.join(format!("{CLNADDRESS_PAYINDEX_FILENAME}.tmp")),
+        serialized,
+    )
+    .await?;
+    fs::rename(
+        path.join(format!("{CLNADDRESS_PAYINDEX_FILENAME}.tmp")),
+        path.join(CLNADDRESS_PAYINDEX_FILENAME),
+    )
+    .await?;
     Ok(())
 }
