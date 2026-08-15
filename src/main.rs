@@ -58,6 +58,10 @@ const OPT_CLNADDRESS_NOSTR_PRIVKEY: StringConfigOption = ConfigOption::new_str_n
     "clnaddress-nostr-privkey",
     "Nostr private key for zap receipts",
 );
+const OPT_CLNADDRESS_NOSTR_PRIVKEY_FILE: StringConfigOption = ConfigOption::new_str_no_default(
+    "clnaddress-nostr-privkey-file",
+    "Path to a file containing the Nostr private key for zap receipts, preferred over clnaddress-nostr-privkey",
+);
 const CLNADDRESS_USERS_FILENAME: &str = "users.json";
 const CLNADDRESS_PAYINDEX_FILENAME: &str = "payindex.json";
 
@@ -76,6 +80,7 @@ async fn main() -> anyhow::Result<()> {
         .option(OPT_CLNADDRESS_MAX_RECEIVABLE)
         .option(OPT_CLNADDRESS_DESCRIPTION)
         .option(OPT_CLNADDRESS_NOSTR_PRIVKEY)
+        .option(OPT_CLNADDRESS_NOSTR_PRIVKEY_FILE)
         .rpcmethod_from_builder(
             RpcMethodBuilder::new("clnaddress-adduser", user_add)
                 .description("Add a user with optional metadata to create a ln address")

@@ -5,7 +5,7 @@ use cln_plugin::Plugin;
 use serde_json::json;
 use tokio::fs;
 
-use crate::{structs::UserMetadata, PluginState, CLNADDRESS_USERS_FILENAME};
+use crate::{CLNADDRESS_USERS_FILENAME, PluginState, structs::UserMetadata};
 
 pub async fn user_add(
     plugin: Plugin<PluginState>,
@@ -227,7 +227,7 @@ pub async fn user_list(
     };
 
     if let Some(usr) = user {
-        users.retain(|u, _v| u.eq_ignore_ascii_case(&usr));
+        users.retain(|u, _v| u.eq(&usr));
         if users.is_empty() {
             return Err(anyhow!("User `{usr}` not found!"));
         }
@@ -256,6 +256,15 @@ pub async fn save_users(
     users: HashMap<String, UserMetadata>,
 ) -> Result<(), anyhow::Error> {
     let serialized = serde_json::to_string(&users)?;
-    fs::write(path.join(CLNADDRESS_USERS_FILENAME), serialized).await?;
+    fs::write(
+        path.join(format!("{CLNADDRESS_USERS_FILENAME}.tmp")),
+        serialized,
+    )
+    .await?;
+    fs::rename(
+        path.join(format!("{CLNADDRESS_USERS_FILENAME}.tmp")),
+        path.join(CLNADDRESS_USERS_FILENAME),
+    )
+    .await?;
     Ok(())
 }
