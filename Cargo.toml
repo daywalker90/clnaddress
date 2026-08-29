@@ -30,7 +30,8 @@ parking_lot = "0.12"
 
 [profile.optimized]
 inherits = "release"
-strip = "debuginfo"
+panic = "abort"
+strip = true
 codegen-units = 1
 lto = "fat"
 debug = false
